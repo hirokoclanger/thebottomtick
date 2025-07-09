@@ -2,12 +2,13 @@
 import { useState, useEffect, useRef } from 'react';
 
 interface TickerSearchProps {
-  onTickerSelect: (ticker: string, isDetailedView?: boolean) => void;
+  onTickerSelect: (ticker: string, viewType?: string) => void;
   onClear: () => void;
   selectedTicker: string | null;
+  currentView?: string;
 }
 
-export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }: TickerSearchProps) {
+export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, currentView }: TickerSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredTickers, setFilteredTickers] = useState<string[]>([]);
@@ -73,25 +74,66 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
   };
 
   const handleTickerClick = (ticker: string) => {
-    const isDetailedView = ticker.toLowerCase().endsWith('.d');
-    const cleanTicker = isDetailedView ? ticker.slice(0, -2) : ticker;
+    // Parse view type from suffix
+    const lowerTicker = ticker.toLowerCase();
+    let viewType = 'default';
+    let cleanTicker = ticker;
+    
+    if (lowerTicker.endsWith('.d')) {
+      viewType = 'detailed';
+      cleanTicker = ticker.slice(0, -2);
+    } else if (lowerTicker.endsWith('.q')) {
+      viewType = 'quarterly';
+      cleanTicker = ticker.slice(0, -2);
+    } else if (lowerTicker.endsWith('.i')) {
+      viewType = 'income';
+      cleanTicker = ticker.slice(0, -2);
+    } else if (lowerTicker.endsWith('.b')) {
+      viewType = 'balance';
+      cleanTicker = ticker.slice(0, -2);
+    } else if (lowerTicker.endsWith('.c')) {
+      viewType = 'cashflow';
+      cleanTicker = ticker.slice(0, -2);
+    }
     
     setIsOpen(false);
     setSearchTerm('');
     setFilteredTickers([]);
-    onTickerSelect(cleanTicker, isDetailedView);
+    onTickerSelect(cleanTicker, viewType);
   };
 
   const handleEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       const term = searchTerm.trim().toUpperCase();
-      const isDetailedView = term.endsWith('.D');
-      const cleanTerm = isDetailedView ? term.slice(0, -2) : term;
+      
+      // Parse view type from suffix
+      let viewType = 'default';
+      let cleanTerm = term;
+      
+      if (term.endsWith('.D')) {
+        viewType = 'detailed';
+        cleanTerm = term.slice(0, -2);
+      } else if (term.endsWith('.Q')) {
+        viewType = 'quarterly';
+        cleanTerm = term.slice(0, -2);
+      } else if (term.endsWith('.I')) {
+        viewType = 'income';
+        cleanTerm = term.slice(0, -2);
+      } else if (term.endsWith('.B')) {
+        viewType = 'balance';
+        cleanTerm = term.slice(0, -2);
+      } else if (term.endsWith('.C')) {
+        viewType = 'cashflow';
+        cleanTerm = term.slice(0, -2);
+      }
       
       if (filteredTickers.length > 0) {
         handleTickerClick(filteredTickers[0]);
       } else if (cleanTerm && availableTickers[cleanTerm]) {
-        handleTickerClick(term);
+        setIsOpen(false);
+        setSearchTerm('');
+        setFilteredTickers([]);
+        onTickerSelect(cleanTerm, viewType);
       }
     }
   };
@@ -104,7 +146,15 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
           <p className="text-gray-600 mb-8">Press "/" to search for any ticker symbol</p>
           <div className="text-sm text-gray-500 space-y-2">
             <p>Examples: AAPL, MSFT, TSLA, GOOGL</p>
-            <p className="text-blue-600">For detailed view: Add .d (e.g., AAPL.d, MSFT.d)</p>
+            <p className="text-blue-600">View types:</p>
+            <div className="text-xs space-y-1 text-left max-w-md mx-auto">
+              <p>• Default: <code>AAPL</code> - Key metrics overview</p>
+              <p>• Quarterly: <code>AAPL.q</code> - Financial data table</p>
+              <p>• Income: <code>AAPL.i</code> - Income statement with charts</p>
+              <p>• Balance: <code>AAPL.b</code> - Balance sheet with charts</p>
+              <p>• Cash Flow: <code>AAPL.c</code> - Cash flow with charts</p>
+              <p>• Detailed: <code>AAPL.d</code> - All metrics</p>
+            </div>
           </div>
         </div>
       </div>
@@ -112,18 +162,42 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
   }
 
   if (!isOpen && selectedTicker) {
+    const getViewDisplayName = (view?: string) => {
+      switch (view) {
+        case 'quarterly': return 'Quarterly Data';
+        case 'income': return 'Income Statement';
+        case 'balance': return 'Balance Sheet';
+        case 'cashflow': return 'Cash Flow';
+        case 'detailed': return 'Detailed View';
+        default: return 'Overview';
+      }
+    };
+
     return (
-      <div className="w-full bg-white px-6 py-4">
-        <div className="w-[90%] mx-auto flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {selectedTicker} - {availableTickers[selectedTicker]?.title || 'Loading...'}
-          </h1>
-          <button
-            onClick={onClear}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Clear (Press =)
-          </button>
+      <div className="w-full bg-white border-b border-gray-200">
+        <div className="w-[90%] mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-gray-900">
+                {selectedTicker}
+              </h1>
+              <div className="text-sm text-gray-600">
+                {availableTickers[selectedTicker]?.title || 'Loading...'}
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm font-medium">
+                {getViewDisplayName(currentView)}
+              </div>
+              <button
+                onClick={onClear}
+                className="text-gray-500 hover:text-gray-700 text-sm flex items-center gap-1"
+              >
+                <span>✕</span>
+                <span>Close</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

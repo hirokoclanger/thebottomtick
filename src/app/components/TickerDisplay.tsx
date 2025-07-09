@@ -6,7 +6,7 @@ interface TickerDisplayProps {
   ticker: string;
   data: any;
   onClear: () => void;
-  isDetailedView?: boolean;
+  viewType?: string;
 }
 
 interface FinancialDataPoint {
@@ -441,7 +441,7 @@ function getShortMetricName(name: string): string {
   return nameMap[name] || name;
 }
 
-export default function TickerDisplay({ ticker, data, onClear, isDetailedView = false }: TickerDisplayProps) {
+export default function TickerDisplay({ ticker, data, onClear, viewType = 'default' }: TickerDisplayProps) {
   const [isChartsExpanded, setIsChartsExpanded] = useState(false);
   const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
   const [shortTermPeriods, setShortTermPeriods] = useState(3);
@@ -633,35 +633,9 @@ export default function TickerDisplay({ ticker, data, onClear, isDetailedView = 
           )}
         </div>
 
-        {/* View Type Indicator */}
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{isDetailedView ? '📋' : '📊'}</span>
-              <div>
-                <h3 className="text-lg font-semibold text-blue-800">
-                  {isDetailedView ? 'Detailed View' : 'Default View'}
-                </h3>
-                <p className="text-sm text-blue-600">
-                  {isDetailedView 
-                    ? 'Showing ALL available financial metrics from SEC filings' 
-                    : 'Showing key financial metrics. Use /Ticker.d for detailed view'
-                  }
-                </p>
-              </div>
-            </div>
-            <div className="text-sm text-blue-600">
-              {isDetailedView ? (
-                <span>Current: <code className="bg-blue-100 px-2 py-1 rounded">{ticker}.d</code></span>
-              ) : (
-                <span>Try: <code className="bg-blue-100 px-2 py-1 rounded">{ticker}.d</code></span>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Financial Charts and Data */}
         {data.facts && (() => {
+          const isDetailedView = viewType === 'detailed' || viewType === 'quarterly';
           const { metrics, periods } = processFinancialData(data.facts, isDetailedView);
           
           if (metrics.length === 0 || periods.length === 0) {
@@ -672,6 +646,68 @@ export default function TickerDisplay({ ticker, data, onClear, isDetailedView = 
                   <p className="text-gray-600">No quarterly financial data available for display.</p>
                   <p className="text-sm text-gray-500 mt-2">
                     This may occur if the company hasn't filed recent quarterly reports or if the data format is different.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          // Quarterly view: show only the financial data table
+          if (viewType === 'quarterly') {
+            return (
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-gray-800">Financial Data (Quarterly)</h2>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b-2 border-gray-300">
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[240px]">
+                          Metric
+                        </th>
+                        {periods.map(period => (
+                          <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
+                            {period}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metrics.map((metric, index) => (
+                        <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="py-3 px-4 w-[350px]">
+                            <div>
+                              <div className="font-medium text-gray-900 cursor-help" title={metric.description}>
+                                {metric.name}
+                              </div>
+                            </div>
+                          </td>
+                          {periods.map(period => {
+                            const dataPoint = metric.dataPoints.find(dp => dp.period === period);
+                            return (
+                              <td key={period} className="py-3 px-4 text-right">
+                                {dataPoint ? (
+                                  <span className="font-mono text-sm text-gray-800">
+                                    {formatValue(dataPoint.value, metric.unit)}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-500 text-sm">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-xs text-gray-500">
+                    Quarterly View: Shows all available quarterly financial metrics in table format. Hover over metric names for descriptions.
+                    Values are shown in millions (M) or billions (B) where applicable.
                   </p>
                 </div>
               </div>
@@ -836,8 +872,9 @@ export default function TickerDisplay({ ticker, data, onClear, isDetailedView = 
                             <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                               <td className="py-3 px-4 w-[350px]">
                                 <div>
-                                  <div className="font-medium text-gray-900">{metric.name}</div>
-                                 
+                                  <div className="font-medium text-gray-900 cursor-help" title={metric.description}>
+                                    {metric.name}
+                                  </div>
                                 </div>
                               </td>
                               {periods.map(period => {
@@ -863,9 +900,9 @@ export default function TickerDisplay({ ticker, data, onClear, isDetailedView = 
                     {/* Legend */}
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <p className="text-xs text-gray-500">
-                        {isDetailedView 
-                          ? 'Detailed View: Shows ALL available financial metrics from SEC filings. ' 
-                          : 'Default View: Shows key financial metrics. Use /Ticker.d for detailed view. '
+                        {viewType === 'detailed' || viewType === 'quarterly'
+                          ? 'Shows ALL available financial metrics from SEC filings. Hover over metric names for descriptions. ' 
+                          : 'Default View: Shows key financial metrics. Use /Ticker.d for detailed view or /Ticker.q for quarterly table. '
                         }
                         Table shows all available quarterly data. Charts display the last 6 years (24 quarters) for readability.
                         Values are shown in millions (M) or billions (B) where applicable.
