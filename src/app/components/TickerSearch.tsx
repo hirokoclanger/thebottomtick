@@ -91,11 +91,13 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
 
   if (!isOpen && !selectedTicker) {
     return (
-      <div className="text-center py-20">
-        <h1 className="text-4xl font-bold mb-4">Financial Data Lookup</h1>
-        <p className="text-gray-600 mb-8">Press "/" to search for any ticker symbol</p>
-        <div className="text-sm text-gray-500">
-          <p>Examples: AAPL, MSFT, TSLA, GOOGL</p>
+      <div className="w-full bg-white min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold mb-4 text-gray-900">Financial Data Lookup</h1>
+          <p className="text-gray-600 mb-8">Press "/" to search for any ticker symbol</p>
+          <div className="text-sm text-gray-500">
+            <p>Examples: AAPL, MSFT, TSLA, GOOGL</p>
+          </div>
         </div>
       </div>
     );
@@ -103,9 +105,9 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
 
   if (!isOpen && selectedTicker) {
     return (
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">
+      <div className="w-full bg-white px-6 py-4">
+        <div className="w-[90%] mx-auto flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900">
             {selectedTicker} - {availableTickers[selectedTicker]?.title || 'Loading...'}
           </h1>
           <button

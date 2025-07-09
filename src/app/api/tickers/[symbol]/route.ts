@@ -23,7 +23,7 @@ export async function GET(
     }
 
     // Try to load company facts if available
-    const factsPath = path.join(process.cwd(), 'src', 'data', 'companyfacts', `CIK${company.cik}.json`);
+    const factsPath = path.join(process.cwd(), 'data', 'companyfacts', `CIK${company.cik}.json`);
     let financialData = null;
     
     try {

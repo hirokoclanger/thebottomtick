@@ -2,7 +2,6 @@
 import { useState } from "react";
 import TickerSearch from "./components/TickerSearch";
 import TickerDisplay from "./components/TickerDisplay";
-
 export default function HomePage() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState<any>(null);
@@ -30,17 +29,20 @@ export default function HomePage() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto py-12">
-      <TickerSearch 
-        onTickerSelect={handleTickerSelect}
-        onClear={handleClearTicker}
-        selectedTicker={selectedTicker}
-      />
+    <div className="w-full bg-white pb-8">
+      <div className="w-full bg-white">
+        <TickerSearch 
+          onTickerSelect={handleTickerSelect}
+          onClear={handleClearTicker}
+          selectedTicker={selectedTicker}
+        />
+      </div>
       
       {selectedTicker && (
         <TickerDisplay 
           ticker={selectedTicker}
           data={companyData}
+          onClear={handleClearTicker}
         />
       )}
     </div>
