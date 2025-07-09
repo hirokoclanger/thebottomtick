@@ -12,6 +12,7 @@ interface FinancialDataPoint {
   date: string;
   quarter?: string;
   year?: string;
+  filed?: string;
 }
 
 interface ProcessedMetric {
@@ -34,24 +35,17 @@ function MetricChart({ metric, className = "" }: { metric: ProcessedMetric; clas
   const minValue = Math.min(...values);
   const range = maxValue - minValue;
 
-  // Calculate linear regression
+  // Calculate parabolic regression (quadratic)
   const n = sortedData.length;
   const xValues = sortedData.map((_, i) => i);
   const yValues = sortedData.map(d => d.value);
   
   const sumX = xValues.reduce((a, b) => a + b, 0);
   const sumY = yValues.reduce((a, b) => a + b, 0);
-  const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
-  const sumXX = xValues.reduce((sum, x) => sum + x * x, 0);
-  
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-  const intercept = (sumY - slope * sumX) / n;
-  
-  // Calculate parabolic regression (quadratic)
   const sumX2 = xValues.reduce((sum, x) => sum + x * x, 0);
   const sumX3 = xValues.reduce((sum, x) => sum + x * x * x, 0);
   const sumX4 = xValues.reduce((sum, x) => sum + x * x * x * x, 0);
-  const sumXYQuad = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
+  const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
   const sumX2Y = xValues.reduce((sum, x, i) => sum + x * x * yValues[i], 0);
   
   // Simple quadratic fit using normal equations
@@ -60,7 +54,7 @@ function MetricChart({ metric, className = "" }: { metric: ProcessedMetric; clas
     [sumX, sumX2, sumX3],
     [sumX2, sumX3, sumX4]
   ];
-  const B = [sumY, sumXYQuad, sumX2Y];
+  const B = [sumY, sumXY, sumX2Y];
   
   // Solve for quadratic coefficients (simplified)
   const det = A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
@@ -80,53 +74,111 @@ function MetricChart({ metric, className = "" }: { metric: ProcessedMetric; clas
               B[0] * (A[1][0] * A[2][1] - A[1][1] * A[2][0])) / det);
   }
 
-  const isPositiveTrend = values[values.length - 1] > values[0];
+  // Determine trend direction from parabolic regression
+  const firstQuadY = quadA + quadB * 0 + quadC * 0 * 0;
+  const lastQuadY = quadA + quadB * (n-1) + quadC * (n-1) * (n-1);
+  const isTrendingUp = lastQuadY > firstQuadY;
 
   // Generate regression line points
   const regressionPoints = xValues.map(x => {
-    const linearY = slope * x + intercept;
     const quadraticY = quadA + quadB * x + quadC * x * x;
-    return { x, linearY, quadraticY };
+    return { x, quadraticY };
   });
+
+  // Format time labels
+  const formatTimeLabel = (dataPoint: FinancialDataPoint) => {
+    const date = new Date(dataPoint.date);
+    const year = date.getFullYear().toString().slice(-2); // Get last 2 digits of year
+    return `${dataPoint.quarter}-${year}`; // dataPoint.quarter already includes "Q"
+  };
+
+  // Calculate value scale ticks
+  const getValueTicks = () => {
+    const tickCount = 5;
+    const step = range / (tickCount - 1);
+    return Array.from({ length: tickCount }, (_, i) => minValue + step * i);
+  };
+
+  const valueTicks = getValueTicks();
 
   return (
     <div className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}>
       <h4 className="text-sm font-medium text-gray-700 mb-2">{metric.name}</h4>
-      <div className="relative">
-        <svg width="400" height="200" className="w-full h-40">
+      <div className="relative h-50 w-full">
+        <svg 
+          viewBox="0 0 400 120" 
+          className="w-full "
+          preserveAspectRatio="xMidYMid meet"
+        >
           {/* Grid lines */}
           <defs>
-            <pattern id={`grid-${metric.name.replace(/\s+/g, '')}`} width="40" height="25" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 25" fill="none" stroke="#e5e7eb" strokeWidth="0.5"/>
+            <pattern id={`grid-${metric.name.replace(/\s+/g, '')}`} width="32" height="16" patternUnits="userSpaceOnUse">
+              <path d="M 32 0 L 0 0 0 16" fill="none" stroke="#f3f4f6" strokeWidth="0.5"/>
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill={`url(#grid-${metric.name.replace(/\s+/g, '')})`}/>
+          <rect x="50" y="5" width="330" height="85" fill={`url(#grid-${metric.name.replace(/\s+/g, '')})`}/>
           
-          {/* Parabolic regression line */}
+          {/* Y-axis (Value scale) */}
+          <line x1="50" y1="5" x2="50" y2="90" stroke="#9ca3af" strokeWidth="1"/>
+          {valueTicks.map((tick, index) => {
+            const y = 90 - ((tick - minValue) / range) * 85;
+            return (
+              <g key={index}>
+                <line x1="45" y1={y} x2="50" y2={y} stroke="#9ca3af" strokeWidth="1"/>
+                <text x="40" y={y + 3} textAnchor="end" fontSize="8" fill="#6b7280">
+                  {formatValue(tick, metric.unit)}
+                </text>
+              </g>
+            );
+          })}
+          
+          {/* X-axis (Time scale) */}
+          <line x1="50" y1="90" x2="380" y2="90" stroke="#9ca3af" strokeWidth="1"/>
+          {sortedData.map((dataPoint, index) => {
+            // Show every 2nd or 3rd label depending on data density, plus always show first and last
+            const showLabel = index === 0 || index === n - 1 || 
+                            (n <= 8 && index % 2 === 0) || 
+                            (n > 8 && index % 3 === 0);
+            
+            if (showLabel) {
+              const x = 50 + (index / (n - 1)) * 330;
+              return (
+                <g key={index}>
+                  <line x1={x} y1="90" x2={x} y2="95" stroke="#9ca3af" strokeWidth="1"/>
+                  <text x={x} y="105" textAnchor="middle" fontSize="8" fill="#6b7280">
+                    {formatTimeLabel(dataPoint)}
+                  </text>
+                </g>
+              );
+            }
+            return null;
+          })}
+          
+          {/* Parabolic trend line */}
           {Math.abs(det) > 0.001 && (
             <polyline
               fill="none"
-              stroke="#8b5cf6"
+              stroke={isTrendingUp ? "#10b981" : "#ef4444"}
               strokeWidth="2"
               points={regressionPoints.map((point, index) => {
-                const x = (index / (n - 1)) * 380 + 10;
-                const y = range === 0 ? 100 : 190 - ((point.quadraticY - minValue) / range) * 180;
-                return `${x},${Math.max(10, Math.min(190, y))}`;
+                const x = 50 + (index / (n - 1)) * 330;
+                const y = range === 0 ? 47.5 : 90 - ((point.quadraticY - minValue) / range) * 85;
+                return `${x},${Math.max(5, Math.min(90, y))}`;
               }).join(' ')}
             />
           )}
           
-          {/* Data points (scatter) */}
+          {/* Data points (blue dots) */}
           {sortedData.map((point, index) => {
-            const x = (index / (n - 1)) * 380 + 10;
-            const y = range === 0 ? 100 : 190 - ((point.value - minValue) / range) * 180;
+            const x = 50 + (index / (n - 1)) * 330;
+            const y = range === 0 ? 47.5 : 90 - ((point.value - minValue) / range) * 85;
             return (
               <circle
                 key={index}
                 cx={x}
-                cy={Math.max(10, Math.min(190, y))}
-                r="4"
-                fill={isPositiveTrend ? "#10b981" : "#ef4444"}
+                cy={Math.max(5, Math.min(90, y))}
+                r="3"
+                fill="#3b82f6"
                 stroke="white"
                 strokeWidth="1"
               />
@@ -134,19 +186,25 @@ function MetricChart({ metric, className = "" }: { metric: ProcessedMetric; clas
           })}
         </svg>
         
-        {/* Legend and latest value */}
+        {/* Current value and trend indicator */}
         <div className="mt-2 flex justify-between items-center">
-          <div className="flex gap-4 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             {Math.abs(det) > 0.001 && (
               <div className="flex items-center gap-1">
-                <div className="w-3 h-0.5 bg-purple-500"></div>
-                <span className="text-gray-600">Parabolic</span>
+                <div className={`w-3 h-0.5 ${isTrendingUp ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-gray-600">Trend</span>
+                <span className={`text-xs ${isTrendingUp ? 'text-green-600' : 'text-red-600'}`}>
+                  {isTrendingUp ? '↗ Up' : '↘ Down'}
+                </span>
               </div>
             )}
           </div>
-          <span className={`text-lg font-bold ${isPositiveTrend ? 'text-green-600' : 'text-red-600'}`}>
-            {formatValue(values[values.length - 1], metric.unit)}
-          </span>
+          <div className="text-right">
+            <div className="text-xs text-gray-500">Latest</div>
+            <span className="text-sm font-bold text-gray-900">
+              {formatValue(values[values.length - 1], metric.unit)}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -190,7 +248,8 @@ function processFinancialData(facts: any): { metrics: ProcessedMetric[], periods
     
     if (!primaryUnit || !metric.units[primaryUnit]) return;
 
-    const dataPoints: FinancialDataPoint[] = metric.units[primaryUnit]
+    // Process and deduplicate data points
+    const rawDataPoints = metric.units[primaryUnit]
       .filter((point: any) => point.end && point.val)
       .map((point: any) => {
         const endDate = new Date(point.end);
@@ -199,16 +258,33 @@ function processFinancialData(facts: any): { metrics: ProcessedMetric[], periods
         const quarter = Math.ceil(month / 3);
         const periodKey = `${year}-Q${quarter}`;
         
-        allPeriods.add(periodKey);
-        
         return {
           value: point.val,
           period: periodKey,
           date: point.end,
           quarter: `Q${quarter}`,
-          year: year.toString()
+          year: year.toString(),
+          filed: point.filed || point.end // Use filed date for deduplication preference
         };
-      })
+      });
+
+    // Deduplicate by period, keeping the most recently filed data for each period
+    const periodMap = new Map<string, FinancialDataPoint>();
+    rawDataPoints.forEach((point: any) => {
+      const existing = periodMap.get(point.period);
+      if (!existing || (point.filed && existing.filed && new Date(point.filed).getTime() > new Date(existing.filed).getTime())) {
+        periodMap.set(point.period, point);
+        allPeriods.add(point.period);
+      } else if (!existing || (!point.filed && !existing.filed)) {
+        // If neither has filed date, just use the first one or keep existing
+        if (!existing) {
+          periodMap.set(point.period, point);
+          allPeriods.add(point.period);
+        }
+      }
+    });
+
+    const dataPoints: FinancialDataPoint[] = Array.from(periodMap.values())
       .sort((a: FinancialDataPoint, b: FinancialDataPoint) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
@@ -284,42 +360,118 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
   return (
     <div className="w-full bg-white text-gray-900">
       <div className="w-[90%] mx-auto px-6 py-6 space-y-6">
-        {/* Company Info */}
-        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Company Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600">Ticker Symbol</label>
-              <p className="text-lg font-semibold text-gray-900">{data.ticker}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600">CIK Number</label>
-              <p className="text-lg text-gray-800">{data.cik}</p>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-600">Company Name</label>
-              <p className="text-lg text-gray-800">{data.title}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Financial Data Status */}
-        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Financial Data Status</h2>
-          <div className="flex items-center gap-4">
-            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+        {/* Company Info and Financial Status */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="flex justify-between items-start mb-3">
+            <h2 className="text-lg font-bold text-gray-800">Company Information</h2>
+            <div className={`px-2 py-1 rounded text-xs font-medium ${
               data.financialData === 'available' 
                 ? 'bg-green-100 text-green-800 border border-green-300' 
                 : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
             }`}>
-              {data.financialData === 'available' ? 'Data Available' : 'Data Not Loaded'}
+              {data.financialData === 'available' ? '📊 Data Available' : '⚠️ Data Not Loaded'}
             </div>
-            {data.financialData !== 'available' && (
-              <p className="text-gray-600 text-sm">
-                Financial data file not found in local storage
-              </p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 text-sm">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Ticker</label>
+              <p className="font-semibold text-gray-900">{data.ticker}</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">CIK</label>
+              <p className="text-gray-800">{data.cik}</p>
+            </div>
+            <div className="col-span-2 md:col-span-1 lg:col-span-2">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Company Name</label>
+              <p className="text-gray-800 truncate" title={data.title}>{data.title}</p>
+            </div>
+            
+            {/* Additional company information if available */}
+            {data.facts && data.facts.entityName && (
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Entity Name</label>
+                <p className="text-gray-700 text-xs truncate" title={data.facts.entityName}>{data.facts.entityName}</p>
+              </div>
+            )}
+            
+            {data.facts && data.facts.dei && (
+              <>
+                {data.facts.dei.EntityRegistrantName && (
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Registrant</label>
+                    <p className="text-gray-700 text-xs truncate" title={
+                      data.facts.dei.EntityRegistrantName.units?.USD?.[0]?.val || 
+                      data.facts.dei.EntityRegistrantName.label || 'N/A'
+                    }>
+                      {data.facts.dei.EntityRegistrantName.units?.USD?.[0]?.val || 
+                       data.facts.dei.EntityRegistrantName.label || 'N/A'}
+                    </p>
+                  </div>
+                )}
+                
+                {data.facts.dei.EntityIncorporationStateCountryCode && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">State</label>
+                    <p className="text-gray-700 text-xs">
+                      {data.facts.dei.EntityIncorporationStateCountryCode.units?.USD?.[0]?.val ||
+                       data.facts.dei.EntityIncorporationStateCountryCode.label || 'N/A'}
+                    </p>
+                  </div>
+                )}
+                
+                {data.facts.dei.EntityPublicFloat && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Public Float</label>
+                    <p className="text-gray-700 text-xs">
+                      {data.facts.dei.EntityPublicFloat.units?.USD?.length > 0 
+                        ? formatValue(data.facts.dei.EntityPublicFloat.units.USD[0].val, 'USD')
+                        : 'N/A'}
+                    </p>
+                  </div>
+                )}
+
+                {data.facts.dei.EntityCommonStockSharesOutstanding && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Shares Outstanding</label>
+                    <p className="text-gray-700 text-xs">
+                      {data.facts.dei.EntityCommonStockSharesOutstanding.units?.shares?.length > 0 
+                        ? (data.facts.dei.EntityCommonStockSharesOutstanding.units.shares[0].val / 1000000).toFixed(1) + 'M'
+                        : 'N/A'}
+                    </p>
+                  </div>
+                )}
+
+                {data.facts.dei.EntityFilerCategory && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Filer Category</label>
+                    <p className="text-gray-700 text-xs">
+                      {data.facts.dei.EntityFilerCategory.units?.USD?.[0]?.val ||
+                       data.facts.dei.EntityFilerCategory.label || 'N/A'}
+                    </p>
+                  </div>
+                )}
+
+                {data.facts.dei.TradingSymbol && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Trading Symbol</label>
+                    <p className="text-gray-700 text-xs">
+                      {data.facts.dei.TradingSymbol.units?.USD?.[0]?.val ||
+                       data.facts.dei.TradingSymbol.label || data.ticker}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
+          
+          {data.financialData !== 'available' && (
+            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+              <p className="text-yellow-800">
+                💡 Financial data file not found in local storage. Some features may be limited.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Financial Charts and Data */}
@@ -345,7 +497,7 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
               {/* Financial Charts */}
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                 <h2 className="text-xl font-bold mb-4 text-gray-800">Financial Metrics Overview</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {metrics.slice(0, 8).map((metric) => (
                     <MetricChart key={metric.name} metric={metric} />
                   ))}
