@@ -28,9 +28,14 @@ interface ProcessedMetric {
 function MetricChart({ metric, className = "" }: { metric: ProcessedMetric; className?: string }) {
   if (metric.dataPoints.length < 2) return null;
 
-  const sortedData = [...metric.dataPoints].sort((a, b) => 
+  // Sort all data points by date
+  const allSortedData = [...metric.dataPoints].sort((a, b) => 
     new Date(a.date).getTime() - new Date(b.date).getTime()
   );
+
+  // Limit to last 6 years (24 quarters) for charts to keep them readable
+  const maxDataPoints = 24; // 6 years * 4 quarters
+  const sortedData = allSortedData.slice(-maxDataPoints);
 
   const values = sortedData.map(d => d.value);
   const maxValue = Math.max(...values);
@@ -310,7 +315,7 @@ function processFinancialData(facts: any): { metrics: ProcessedMetric[], periods
     return dateB - dateA;
   });
 
-  return { metrics, periods: sortedPeriods.slice(0, 8) }; // Show last 8 quarters
+  return { metrics, periods: sortedPeriods }; // Show all available quarters for table
 }
 
 // Helper function to format values
@@ -748,6 +753,7 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
                 
                 {isChartsExpanded && (
                   <div className="mt-4">
+                    {/* Charts show only last 6 years (24 quarters) for readability */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {metrics.slice(0, 8).map((metric) => (
                         <MetricChart key={metric.name} metric={metric} />
@@ -782,11 +788,11 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
                       <table className="w-full border-collapse">
                         <thead>
                           <tr className="border-b-2 border-gray-300">
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[200px]">
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[240px]">
                               Metric
                             </th>
                             {periods.map(period => (
-                              <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[120px]">
+                              <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
                                 {period}
                               </th>
                             ))}
@@ -795,14 +801,10 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
                         <tbody>
                           {metrics.map((metric, index) => (
                             <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-4 w-[350px]">
                                 <div>
                                   <div className="font-medium text-gray-900">{metric.name}</div>
-                                  {metric.description && (
-                                    <div className="text-xs text-gray-600 mt-1 line-clamp-3">
-                                      {metric.description}
-                                    </div>
-                                  )}
+                                 
                                 </div>
                               </td>
                               {periods.map(period => {
@@ -828,8 +830,8 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
                     {/* Legend */}
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <p className="text-xs text-gray-500">
-                        Values are shown in millions (M) or billions (B) where applicable. 
-                        Data sourced from SEC filings and may include both quarterly and annual figures.
+                        Table shows all available quarterly data. Charts display the last 6 years (24 quarters) for readability.
+                        Values are shown in millions (M) or billions (B) where applicable.
                       </p>
                     </div>
                   </div>
