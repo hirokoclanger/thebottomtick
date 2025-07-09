@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from 'react';
+
 interface TickerDisplayProps {
   ticker: string;
   data: any;
@@ -331,6 +333,9 @@ function formatValue(value: number, unit: string): string {
 }
 
 export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayProps) {
+  const [isChartsExpanded, setIsChartsExpanded] = useState(false);
+  const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
+
   if (!data) {
     return (
       <div className="w-full min-h-screen bg-white text-gray-900 flex items-center justify-center">
@@ -496,71 +501,111 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
             <>
               {/* Financial Charts */}
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <h2 className="text-xl font-bold mb-4 text-gray-800">Financial Metrics Overview</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {metrics.slice(0, 8).map((metric) => (
-                    <MetricChart key={metric.name} metric={metric} />
-                  ))}
+                <div 
+                  className="flex justify-between items-center cursor-pointer"
+                  onClick={() => setIsChartsExpanded(!isChartsExpanded)}
+                >
+                  <h2 className="text-xl font-bold text-gray-800">Financial Metrics Overview</h2>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      {isChartsExpanded ? 'Hide Charts' : 'Show Charts'}
+                    </span>
+                    <div className={`transform transition-transform duration-200 ${isChartsExpanded ? 'rotate-180' : ''}`}>
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
                 </div>
+                
+                {isChartsExpanded && (
+                  <div className="mt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {metrics.slice(0, 8).map((metric) => (
+                        <MetricChart key={metric.name} metric={metric} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Financial Data Table */}
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <h2 className="text-xl font-bold mb-4 text-gray-800">Financial Data (Quarterly)</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b-2 border-gray-300">
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[200px]">
-                          Metric
-                        </th>
-                        {periods.map(period => (
-                          <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[120px]">
-                            {period}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {metrics.map((metric, index) => (
-                        <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="py-3 px-4">
-                            <div>
-                              <div className="font-medium text-gray-900">{metric.name}</div>
-                              {metric.description && (
-                                <div className="text-xs text-gray-600 mt-1 line-clamp-3">
-                                  {metric.description}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          {periods.map(period => {
-                            const dataPoint = metric.dataPoints.find(dp => dp.period === period);
-                            return (
-                              <td key={period} className="py-3 px-4 text-right">
-                                {dataPoint ? (
-                                  <span className="font-mono text-sm text-gray-800">
-                                    {formatValue(dataPoint.value, metric.unit)}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500 text-sm">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div 
+                  className="flex justify-between items-center cursor-pointer"
+                  onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}
+                >
+                  <h2 className="text-xl font-bold text-gray-800">Financial Data (Quarterly)</h2>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      {isMetricsExpanded ? 'Hide Table' : 'Show Table'}
+                    </span>
+                    <div className={`transform transition-transform duration-200 ${isMetricsExpanded ? 'rotate-180' : ''}`}>
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 
-                {/* Legend */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">
-                    Values are shown in millions (M) or billions (B) where applicable. 
-                    Data sourced from SEC filings and may include both quarterly and annual figures.
-                  </p>
-                </div>
+                {isMetricsExpanded && (
+                  <div className="mt-4">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-gray-300">
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[200px]">
+                              Metric
+                            </th>
+                            {periods.map(period => (
+                              <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[120px]">
+                                {period}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {metrics.map((metric, index) => (
+                            <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                              <td className="py-3 px-4">
+                                <div>
+                                  <div className="font-medium text-gray-900">{metric.name}</div>
+                                  {metric.description && (
+                                    <div className="text-xs text-gray-600 mt-1 line-clamp-3">
+                                      {metric.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              {periods.map(period => {
+                                const dataPoint = metric.dataPoints.find(dp => dp.period === period);
+                                return (
+                                  <td key={period} className="py-3 px-4 text-right">
+                                    {dataPoint ? (
+                                      <span className="font-mono text-sm text-gray-800">
+                                        {formatValue(dataPoint.value, metric.unit)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-500 text-sm">—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {/* Legend */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        Values are shown in millions (M) or billions (B) where applicable. 
+                        Data sourced from SEC filings and may include both quarterly and annual figures.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           );
