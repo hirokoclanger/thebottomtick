@@ -1,43 +1,68 @@
-export default async function Home() {
+"use client";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+const SearchModal = dynamic(() => import("./SearchModal"), { ssr: false });
+
+export default function Home() {
+  const [articles, setArticles] = useState<any[]>([]);
+  const searchParams = useSearchParams();
+  const q = searchParams.get('q');
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/articles");
+      const data = await res.json();
+      setArticles(data);
+    })();
+  }, []);
+
+  // Filter articles by tag if q is present
+  const filteredArticles = q
+    ? articles.filter(article =>
+        (article.tags || "")
+          .split(',')
+          .map((tag: string) => tag.trim().toLowerCase())
+          .includes(q.trim().toLowerCase())
+      )
+    : articles;
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center">
-        <h1 className="text-2xl text-center sm:text-3xl">Next.js</h1>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://docs.sevalla.com/application-hosting"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          📁 Read Sevalla docs
-        </a>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          📁 Read Next.js docs
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          📚 Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          🌐 Go to nextjs.org →
-        </a>
-      </footer>
+    <div className="w-[80vw] max-w-4xl mx-auto py-12">
+      <SearchModal articles={articles} />
+      <h1 className="text-3xl font-bold mb-8">Blog</h1>
+      <ul className="space-y-8">
+        {filteredArticles.map((article, i) => (
+          <li key={article.slug} className={`border-b pb-6 flex items-start gap-4 ${i % 2 === 1 ? 'flex-row-reverse' : ''}`}>
+            {article.image && (article.image.startsWith('http') || article.image.startsWith('data:image')) && (
+              <img
+                src={article.image}
+                alt={article.title}
+                className={`w-20 h-14 object-cover rounded shadow-sm flex-shrink-0 mt-1 ${i % 2 === 1 ? 'ml-4' : 'mr-4'}`}
+                width={80}
+                height={56}
+                loading="lazy"
+              />
+            )}
+            <div className="flex-1">
+              <Link href={`/blog/${article.slug}`}
+                className="text-2xl font-semibold hover:underline">
+                {article.title}
+              </Link>
+              <p className="text-gray-600 text-sm mt-1">{article.date}</p>
+              <p className="mt-2 text-gray-800">{article.tags}</p>
+              {article.content && (
+                <p className="mt-2 text-gray-700 text-sm">
+                  {article.content.replace(/<[^>]+>/g, "").slice(0, 150)}
+                  {article.content.replace(/<[^>]+>/g, "").length > 150 ? "..." : ""}
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
