@@ -6,6 +6,7 @@ interface TickerDisplayProps {
   ticker: string;
   data: any;
   onClear: () => void;
+  isDetailedView?: boolean;
 }
 
 interface FinancialDataPoint {
@@ -219,7 +220,7 @@ function MetricChart({ metric, className = "" }: { metric: ProcessedMetric; clas
 }
 
 // Helper function to process financial data
-function processFinancialData(facts: any): { metrics: ProcessedMetric[], periods: string[] } {
+function processFinancialData(facts: any, isDetailedView: boolean = false): { metrics: ProcessedMetric[], periods: string[] } {
   if (!facts || !facts['us-gaap']) {
     return { metrics: [], periods: [] };
   }
@@ -227,7 +228,7 @@ function processFinancialData(facts: any): { metrics: ProcessedMetric[], periods
   const metrics: ProcessedMetric[] = [];
   const allPeriods = new Set<string>();
 
-  // Key financial metrics to display
+  // Key financial metrics to display in default view
   const keyMetrics = [
     'Revenues',
     'RevenueFromContractWithCustomerExcludingAssessedTax',
@@ -245,7 +246,12 @@ function processFinancialData(facts: any): { metrics: ProcessedMetric[], periods
     'OperatingCashFlowsFromOperatingActivities'
   ];
 
-  keyMetrics.forEach(metricKey => {
+  // In detailed view, process ALL available metrics
+  const metricsToProcess = isDetailedView 
+    ? Object.keys(facts['us-gaap']) 
+    : keyMetrics;
+
+  metricsToProcess.forEach(metricKey => {
     const metric = facts['us-gaap'][metricKey];
     if (!metric || !metric.units) return;
 
@@ -435,7 +441,7 @@ function getShortMetricName(name: string): string {
   return nameMap[name] || name;
 }
 
-export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayProps) {
+export default function TickerDisplay({ ticker, data, onClear, isDetailedView = false }: TickerDisplayProps) {
   const [isChartsExpanded, setIsChartsExpanded] = useState(false);
   const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
   const [shortTermPeriods, setShortTermPeriods] = useState(3);
@@ -627,9 +633,36 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
           )}
         </div>
 
+        {/* View Type Indicator */}
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{isDetailedView ? '📋' : '📊'}</span>
+              <div>
+                <h3 className="text-lg font-semibold text-blue-800">
+                  {isDetailedView ? 'Detailed View' : 'Default View'}
+                </h3>
+                <p className="text-sm text-blue-600">
+                  {isDetailedView 
+                    ? 'Showing ALL available financial metrics from SEC filings' 
+                    : 'Showing key financial metrics. Use /Ticker.d for detailed view'
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="text-sm text-blue-600">
+              {isDetailedView ? (
+                <span>Current: <code className="bg-blue-100 px-2 py-1 rounded">{ticker}.d</code></span>
+              ) : (
+                <span>Try: <code className="bg-blue-100 px-2 py-1 rounded">{ticker}.d</code></span>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Financial Charts and Data */}
         {data.facts && (() => {
-          const { metrics, periods } = processFinancialData(data.facts);
+          const { metrics, periods } = processFinancialData(data.facts, isDetailedView);
           
           if (metrics.length === 0 || periods.length === 0) {
             return (
@@ -830,6 +863,10 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
                     {/* Legend */}
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <p className="text-xs text-gray-500">
+                        {isDetailedView 
+                          ? 'Detailed View: Shows ALL available financial metrics from SEC filings. ' 
+                          : 'Default View: Shows key financial metrics. Use /Ticker.d for detailed view. '
+                        }
                         Table shows all available quarterly data. Charts display the last 6 years (24 quarters) for readability.
                         Values are shown in millions (M) or billions (B) where applicable.
                       </p>

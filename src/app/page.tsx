@@ -5,9 +5,11 @@ import TickerDisplay from "./components/TickerDisplay";
 export default function HomePage() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState<any>(null);
+  const [isDetailedView, setIsDetailedView] = useState<boolean>(false);
 
-  const handleTickerSelect = async (ticker: string) => {
+  const handleTickerSelect = async (ticker: string, isDetailed: boolean = false) => {
     setSelectedTicker(ticker);
+    setIsDetailedView(isDetailed);
     
     try {
       const response = await fetch(`/api/tickers/${ticker}`);
@@ -26,6 +28,7 @@ export default function HomePage() {
   const handleClearTicker = () => {
     setSelectedTicker(null);
     setCompanyData(null);
+    setIsDetailedView(false);
   };
 
   return (
@@ -43,6 +46,7 @@ export default function HomePage() {
           ticker={selectedTicker}
           data={companyData}
           onClear={handleClearTicker}
+          isDetailedView={isDetailedView}
         />
       )}
     </div>

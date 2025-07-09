@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 interface TickerSearchProps {
-  onTickerSelect: (ticker: string) => void;
+  onTickerSelect: (ticker: string, isDetailedView?: boolean) => void;
   onClear: () => void;
   selectedTicker: string | null;
 }
@@ -73,18 +73,25 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
   };
 
   const handleTickerClick = (ticker: string) => {
+    const isDetailedView = ticker.toLowerCase().endsWith('.d');
+    const cleanTicker = isDetailedView ? ticker.slice(0, -2) : ticker;
+    
     setIsOpen(false);
     setSearchTerm('');
     setFilteredTickers([]);
-    onTickerSelect(ticker);
+    onTickerSelect(cleanTicker, isDetailedView);
   };
 
   const handleEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      const term = searchTerm.trim().toUpperCase();
+      const isDetailedView = term.endsWith('.D');
+      const cleanTerm = isDetailedView ? term.slice(0, -2) : term;
+      
       if (filteredTickers.length > 0) {
         handleTickerClick(filteredTickers[0]);
-      } else if (searchTerm.trim() && availableTickers[searchTerm.toUpperCase()]) {
-        handleTickerClick(searchTerm.toUpperCase());
+      } else if (cleanTerm && availableTickers[cleanTerm]) {
+        handleTickerClick(term);
       }
     }
   };
@@ -95,8 +102,9 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4 text-gray-900">Financial Data Lookup</h1>
           <p className="text-gray-600 mb-8">Press "/" to search for any ticker symbol</p>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 space-y-2">
             <p>Examples: AAPL, MSFT, TSLA, GOOGL</p>
+            <p className="text-blue-600">For detailed view: Add .d (e.g., AAPL.d, MSFT.d)</p>
           </div>
         </div>
       </div>
@@ -128,7 +136,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Type ticker symbol (e.g., AAPL, MSFT, TSLA)..."
+            placeholder="Type ticker symbol (e.g., AAPL, MSFT.d for detailed view)..."
             className="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -144,6 +152,10 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker }
           >
             ✕
           </button>
+        </div>
+        
+        <div className="mb-4 text-sm text-gray-600">
+          <p><strong>Tip:</strong> Add ".d" to any ticker for detailed view (e.g., AAPL.d)</p>
         </div>
         
         {searchTerm && filteredTickers.length === 0 && (
