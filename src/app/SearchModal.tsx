@@ -28,7 +28,7 @@ export default function SearchModal({ articles }: { articles: any[] }) {
   };
 
 
-  // Open search modal on '/' key press
+  // Open search modal on '/' key press, clear filter on '=' key press
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
       if (event.key === '/' && !isOpen) {
@@ -37,6 +37,12 @@ export default function SearchModal({ articles }: { articles: any[] }) {
         setSearchTerm('');
         setFilteredTags([]);
         setTimeout(() => searchInputRef.current?.focus(), 0);
+      } else if (event.key === '=' && !isOpen) {
+        // Clear filter and show all articles
+        event.preventDefault();
+        const params = new URLSearchParams(searchParams);
+        params.delete('q');
+        router.replace(`?${params.toString()}`);
       } else if (event.key === 'Escape' && isOpen) {
         setIsOpen(false);
         setSearchTerm('');
@@ -73,8 +79,17 @@ export default function SearchModal({ articles }: { articles: any[] }) {
   };
 
   const handleEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && filteredTags.length > 0) {
-      handleTagClick(filteredTags[0]);
+    if (e.key === 'Enter') {
+      if (filteredTags.length > 0) {
+        // Use the first filtered tag
+        handleTagClick(filteredTags[0]);
+      } else if (searchTerm.trim()) {
+        // If no filtered tags but user typed something, search for that exact term
+        setIsOpen(false);
+        const params = new URLSearchParams(searchParams);
+        params.set('q', searchTerm.trim());
+        router.replace(`?${params.toString()}`);
+      }
     }
   };
 

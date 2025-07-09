@@ -1,86 +1,63 @@
-import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { NextRequest, NextResponse } from 'next/server';
+import { getAllArticles, createArticle } from '@/lib/articles';
+import type { CreateArticleRequest } from '@/lib/types';
+import fs from 'fs/promises';
+import path from 'path';
 
-const CSV_PATH = path.join(process.cwd(), "src/app/blog/articles.csv");
-
-function parseCsv(csv: string) {
-  const [header, ...rows] = csv.trim().split(/\r?\n/);
-  return rows.map((row) => {
-    const cols = row.match(/\"(?:[^\"]|\"\")*\"|[^,]+/g)?.map((c) => c.replace(/^"|"$/g, "").replace(/""/g, '"')) || [];
-    return {
-      slug: cols[0],
-      title: cols[1],
-      content: cols[2],
-      image: cols[3] || undefined,
-      date: cols[4],
-      tags: cols[5] || "",
-    };
-  });
-}
-
-export async function GET() {
+// GET /api/articles - Get all articles or filter by tag
+export async function GET(request: NextRequest) {
   try {
-    const csv = await fs.readFile(CSV_PATH, "utf8");
-    const articles = parseCsv(csv);
+    const { searchParams } = new URL(request.url);
+    const tag = searchParams.get('tag');
+    
+    if (tag) {
+      const articles = await getAllArticles();
+      const filtered = articles.filter(article =>
+        article.tags
+          .split(',')
+          .map(t => t.trim().toLowerCase())
+          .includes(tag.toLowerCase())
+      );
+      return NextResponse.json(filtered);
+    }
+    
+    const articles = await getAllArticles();
     return NextResponse.json(articles);
-  } catch (e) {
-    return NextResponse.json([], { status: 200 });
+  } catch (error) {
+    console.error('Error fetching articles:', error);
+    return NextResponse.json({ error: 'Failed to fetch articles' }, { status: 500 });
   }
 }
 
-function toCsvRow(obj: Record<string, any>) {
-  // Escape quotes and commas
-  return [
-    obj.slug,
-    obj.title.replace(/"/g, '""'),
-    obj.content.replace(/"/g, '""'),
-    obj.image || "",
-    obj.date,
-    obj.description.replace(/"/g, '""'),
-  ].map((v) => `"${v}"`).join(",") + "\n";
-}
-
-export async function PUT(req: NextRequest) {
-  const data = await req.json();
-  if (!data.slug || !data.title || !data.content || !data.date || !data.description) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-  }
-  let csv = "";
+// POST /api/articles - Create new article
+export async function POST(request: NextRequest) {
   try {
-    csv = await fs.readFile(CSV_PATH, "utf8");
-  } catch {
-    return NextResponse.json({ error: "CSV file not found" }, { status: 404 });
+    const data: CreateArticleRequest = await request.json();
+    
+    // Validate required fields
+    if (!data.title || !data.content || !data.description) {
+      return NextResponse.json(
+        { error: 'Title, content, and description are required' },
+        { status: 400 }
+      );
+    }
+    
+    const newArticle = await createArticle(data);
+    
+    // Read current articles
+    const articlesPath = path.join(process.cwd(), 'src/data/articles.json');
+    const articlesData = await fs.readFile(articlesPath, 'utf8');
+    const articles = JSON.parse(articlesData);
+    
+    // Add new article
+    articles.push(newArticle);
+    
+    // Write back to file
+    await fs.writeFile(articlesPath, JSON.stringify(articles, null, 2));
+    
+    return NextResponse.json(newArticle, { status: 201 });
+  } catch (error) {
+    console.error('Error creating article:', error);
+    return NextResponse.json({ error: 'Failed to create article' }, { status: 500 });
   }
-  const articles = parseCsv(csv);
-  const idx = articles.findIndex((a: any) => a.slug === data.slug);
-  if (idx === -1) {
-    return NextResponse.json({ error: "Article not found" }, { status: 404 });
-  }
-  articles[idx] = data;
-  const header = 'slug,title,content,image,date,description\n';
-  const newCsv = header + articles.map(toCsvRow).join("");
-  await fs.writeFile(CSV_PATH, newCsv, "utf8");
-  return NextResponse.json({ success: true });
-}
-
-export async function POST(req: NextRequest) {
-  const data = await req.json();
-  // Validate required fields
-  if (!data.slug || !data.title || !data.content || !data.date || !data.description) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-  }
-  // Write header if file does not exist
-  try {
-    await fs.access(CSV_PATH);
-  } catch {
-    await fs.writeFile(
-      CSV_PATH,
-      'slug,title,content,image,date,description\n',
-      'utf8'
-    );
-  }
-  // Append new row
-  await fs.appendFile(CSV_PATH, toCsvRow(data), "utf8");
-  return NextResponse.json({ success: true });
 }
