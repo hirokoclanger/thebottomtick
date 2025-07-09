@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface TickerDisplayProps {
   ticker: string;
@@ -332,9 +332,152 @@ function formatValue(value: number, unit: string): string {
   }
 }
 
+// Helper function to calculate trend for a metric
+function calculateMetricTrend(metric: ProcessedMetric, shortTermPeriods: number = 3): { 
+  overallTrend: 'up' | 'down' | 'neutral', 
+  shortTermTrend: 'up' | 'down' | 'neutral',
+  latestValue: number 
+} {
+  if (metric.dataPoints.length < 2) {
+    return { overallTrend: 'neutral', shortTermTrend: 'neutral', latestValue: metric.dataPoints[0]?.value || 0 };
+  }
+
+  const sortedData = [...metric.dataPoints].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const n = sortedData.length;
+  const xValues = sortedData.map((_, i) => i);
+  const yValues = sortedData.map(d => d.value);
+  
+  // Calculate parabolic regression for overall trend
+  const sumX = xValues.reduce((a, b) => a + b, 0);
+  const sumY = yValues.reduce((a, b) => a + b, 0);
+  const sumX2 = xValues.reduce((sum, x) => sum + x * x, 0);
+  const sumX3 = xValues.reduce((sum, x) => sum + x * x * x, 0);
+  const sumX4 = xValues.reduce((sum, x) => sum + x * x * x * x, 0);
+  const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
+  const sumX2Y = xValues.reduce((sum, x, i) => sum + x * x * yValues[i], 0);
+  
+  const A = [
+    [n, sumX, sumX2],
+    [sumX, sumX2, sumX3],
+    [sumX2, sumX3, sumX4]
+  ];
+  const B = [sumY, sumXY, sumX2Y];
+  
+  const det = A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+              A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+              A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+  
+  let overallTrend: 'up' | 'down' | 'neutral' = 'neutral';
+  if (Math.abs(det) > 0.001) {
+    const quadA = ((B[0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+                    A[0][1] * (B[1] * A[2][2] - A[1][2] * B[2]) +
+                    A[0][2] * (B[1] * A[2][1] - A[1][1] * B[2])) / det);
+    const quadB = ((A[0][0] * (B[1] * A[2][2] - A[1][2] * B[2]) -
+                    B[0] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+                    A[0][2] * (A[1][0] * B[2] - B[1] * A[2][0])) / det);
+    const quadC = ((A[0][0] * (A[1][1] * B[2] - B[1] * A[2][1]) -
+                    A[0][1] * (A[1][0] * B[2] - B[1] * A[2][0]) +
+                    B[0] * (A[1][0] * A[2][1] - A[1][1] * A[2][0])) / det);
+
+    const firstQuadY = quadA + quadB * 0 + quadC * 0 * 0;
+    const lastQuadY = quadA + quadB * (n-1) + quadC * (n-1) * (n-1);
+    overallTrend = lastQuadY > firstQuadY ? 'up' : 'down';
+  }
+
+  // Calculate short-term trend (configurable number of periods)
+  const lastNPeriods = sortedData.slice(-shortTermPeriods);
+  let shortTermTrend: 'up' | 'down' | 'neutral' = 'neutral';
+  
+  if (lastNPeriods.length >= 2) {
+    const firstValue = lastNPeriods[0].value;
+    const lastValue = lastNPeriods[lastNPeriods.length - 1].value;
+    const change = ((lastValue - firstValue) / Math.abs(firstValue)) * 100;
+    
+    if (Math.abs(change) > 5) { // 5% threshold for significant change
+      shortTermTrend = change > 0 ? 'up' : 'down';
+    }
+  }
+
+  return { 
+    overallTrend, 
+    shortTermTrend, 
+    latestValue: sortedData[sortedData.length - 1].value 
+  };
+}
+
+// Helper function to get short metric names
+function getShortMetricName(name: string): string {
+  const nameMap: Record<string, string> = {
+    'Revenues': 'Revenue',
+    'Revenue From Contract With Customer Excluding Assessed Tax': 'Contract Revenue',
+    'Gross Profit': 'Gross Profit',
+    'Operating Income Loss': 'Operating Income',
+    'Net Income Loss': 'Net Income',
+    'Earnings Per Share Basic': 'EPS Basic',
+    'Earnings Per Share Diluted': 'EPS Diluted',
+    'Assets': 'Total Assets',
+    'Assets Current': 'Current Assets',
+    'Liabilities': 'Total Liabilities',
+    'Liabilities Current': 'Current Liabilities',
+    'Stockholders Equity': 'Equity',
+    'Cash And Cash Equivalents At Carrying Value': 'Cash',
+    'Operating Cash Flows From Operating Activities': 'Operating Cash Flow'
+  };
+  
+  return nameMap[name] || name;
+}
+
 export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayProps) {
   const [isChartsExpanded, setIsChartsExpanded] = useState(false);
   const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
+  const [shortTermPeriods, setShortTermPeriods] = useState(3);
+
+  // Keyboard shortcut handling for trend period adjustment
+  useEffect(() => {
+    let inputBuffer = '';
+    let isTypingT = false;
+
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Ignore if user is typing in an input field
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if (key === 't' && !isTypingT) {
+        isTypingT = true;
+        inputBuffer = '';
+        event.preventDefault();
+        return;
+      }
+
+      if (isTypingT) {
+        if (key === 'enter') {
+          const num = parseInt(inputBuffer);
+          if (!isNaN(num) && num >= 2 && num <= 12) {
+            setShortTermPeriods(num);
+          }
+          isTypingT = false;
+          inputBuffer = '';
+          event.preventDefault();
+        } else if (key >= '0' && key <= '9') {
+          inputBuffer += key;
+          event.preventDefault();
+        } else if (key === 'escape' || key === 'backspace') {
+          isTypingT = false;
+          inputBuffer = '';
+          event.preventDefault();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   if (!data) {
     return (
@@ -499,6 +642,91 @@ export default function TickerDisplay({ ticker, data, onClear }: TickerDisplayPr
 
           return (
             <>
+              {/* Metrics Summary Table */}
+              <div className="bg-white rounded-lg p-4 border border-gray-200 mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-lg font-bold text-gray-800">Metrics Summary</h2>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Short-term periods:</label>
+                    <select
+                      value={shortTermPeriods}
+                      onChange={(e) => setShortTermPeriods(Number(e.target.value))}
+                      className="px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value={2}>2Q</option>
+                      <option value={3}>3Q</option>
+                      <option value={4}>4Q</option>
+                      <option value={5}>5Q</option>
+                      <option value={6}>6Q</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2 px-3 font-semibold text-gray-700">Metric</th>
+                        <th className="text-right py-2 px-3 font-semibold text-gray-700">Latest Value</th>
+                        <th className="text-center py-2 px-3 font-semibold text-gray-700">Overall Trend</th>
+                        <th className="text-center py-2 px-3 font-semibold text-gray-700">
+                          <div className="flex items-center justify-center gap-1">
+                            <span>{shortTermPeriods}Q Trend</span>
+                            <span className="text-xs text-gray-400 font-normal">(t+num)</span>
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metrics.map((metric, index) => {
+                        const trends = calculateMetricTrend(metric, shortTermPeriods);
+                        return (
+                          <tr key={metric.name} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                            <td className="py-2 px-3 font-medium text-gray-900">
+                              {getShortMetricName(metric.name)}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-gray-800">
+                              {formatValue(trends.latestValue, metric.unit)}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {trends.overallTrend === 'up' && (
+                                  <span className="text-green-600 font-bold">↗ Up</span>
+                                )}
+                                {trends.overallTrend === 'down' && (
+                                  <span className="text-red-600 font-bold">↘ Down</span>
+                                )}
+                                {trends.overallTrend === 'neutral' && (
+                                  <span className="text-gray-500">→ Neutral</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {trends.shortTermTrend === 'up' && (
+                                  <span className="text-green-600 font-bold">↗ Up</span>
+                                )}
+                                {trends.shortTermTrend === 'down' && (
+                                  <span className="text-red-600 font-bold">↘ Down</span>
+                                )}
+                                {trends.shortTermTrend === 'neutral' && (
+                                  <span className="text-gray-500">→ Flat</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  Overall Trend: Based on parabolic regression across all available data. 
+                  {shortTermPeriods}Q Trend: Short-term trend over last {shortTermPeriods} quarters (&gt;5% change threshold).
+                  <br />
+                  <span className="text-gray-400">💡 Quick shortcut: Press 't' + number + Enter to change trend period (e.g., t4 + Enter for 4 quarters)</span>
+                </div>
+              </div>
+
               {/* Financial Charts */}
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                 <div 
