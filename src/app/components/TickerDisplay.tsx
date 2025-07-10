@@ -640,18 +640,32 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
           // Handle both old format (data.facts) and new format (data.metrics)
           let metrics, periods;
           if (data.metrics && data.periods) {
-            // New server-processed format
+            // New server-processed format - server already did the filtering
             metrics = data.metrics;
             periods = data.periods;
+            console.log('Server-processed data:', { 
+              totalMetrics: metrics.length, 
+              viewType, 
+              serverView: data.view,
+              isDetailedView,
+              firstFewMetrics: metrics.slice(0, 5).map((m: ProcessedMetric) => m.name)
+            });
           } else if (data.facts) {
             // Old client-processed format (fallback)
             const processed = processFinancialData(data.facts, isDetailedView);
             metrics = processed.metrics;
             periods = processed.periods;
+            console.log('Client-processed data:', { 
+              totalMetrics: metrics.length, 
+              viewType, 
+              isDetailedView 
+            });
           } else {
             metrics = [];
             periods = [];
           }
+          
+          console.log(`Final result - View Type: ${viewType}, Is Detailed: ${isDetailedView}, Metrics Count: ${metrics.length}`);
           
           if (metrics.length === 0 || periods.length === 0) {
             return (
@@ -837,11 +851,21 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                 
                 {isChartsExpanded && (
                   <div className="mt-4">
-                    {/* Charts show only last 6 years (24 quarters) for readability */}
+                    {/* In detailed view, show all metrics with charts; in default view, show first 8 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {metrics.slice(0, 8).map((metric: ProcessedMetric) => (
+                      {(isDetailedView ? metrics : metrics.slice(0, 8)).map((metric: ProcessedMetric) => (
                         <MetricChart key={metric.name} metric={metric} />
                       ))}
+                    </div>
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                      <p className="text-blue-800">
+                        📊 <strong>{isDetailedView ? 'Detailed View' : 'Default View'}:</strong> 
+                        {isDetailedView 
+                          ? ` Showing all ${metrics.length} available financial metrics with charts.` 
+                          : ` Showing top ${Math.min(8, metrics.length)} key metrics. Use /Ticker.d for all ${data.metrics?.length || 'available'} metrics.`
+                        }
+                        Charts display the last 6 years (24 quarters) for readability.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -916,13 +940,22 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <p className="text-xs text-gray-500">
                         {viewType === 'detailed' || viewType === 'quarterly'
-                          ? 'Shows ALL available financial metrics from SEC filings. Hover over metric names for descriptions. ' 
-                          : 'Default View: Shows key financial metrics. Use /Ticker.d for detailed view or /Ticker.q for quarterly table. '
+                          ? `Shows ALL ${metrics.length} available financial metrics from SEC filings. Hover over metric names for descriptions. ` 
+                          : `Default View: Shows ${metrics.length} key financial metrics. Use /Ticker.d for detailed view (all ${data.metrics?.length || 'available'} metrics) or /Ticker.q for quarterly table. `
                         }
                         Table shows all available quarterly data. Charts display the last 6 years (24 quarters) for readability.
                         Values are shown in millions (M) or billions (B) where applicable.
                       </p>
                     </div>
+                    
+                    {isDetailedView && (
+                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded text-sm">
+                        <p className="text-green-800">
+                          🔍 <strong>Detailed View:</strong> Displaying all {metrics.length} available financial metrics. 
+                          This includes comprehensive data across all financial statement categories.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

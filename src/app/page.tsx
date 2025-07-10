@@ -12,7 +12,9 @@ export default function HomePage() {
     setCurrentView(viewType);
     
     try {
-      const response = await fetch(`/api/tickers/${ticker}`);
+      // Add view parameter to API call
+      const url = `/api/tickers/${ticker}?view=${viewType}`;
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setCompanyData(data);
