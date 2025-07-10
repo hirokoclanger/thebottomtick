@@ -97,9 +97,6 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
     } else if (lowerTicker.endsWith('.c')) {
       viewType = 'cashflow';
       cleanTicker = ticker.slice(0, -2);
-    } else if (lowerTicker.endsWith('.f')) {
-      viewType = 'forward';
-      cleanTicker = ticker.slice(0, -2);
     }
     
     setIsOpen(false);
@@ -134,9 +131,6 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
       } else if (term.endsWith('.C')) {
         viewType = 'cashflow';
         cleanTerm = term.slice(0, -2);
-      } else if (term.endsWith('.F')) {
-        viewType = 'forward';
-        cleanTerm = term.slice(0, -2);
       }
       
       if (filteredTickers.length > 0) {
@@ -167,7 +161,6 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
               <p>• Balance: <code>AAPL.b</code> - Balance sheet metrics</p>
               <p>• Cash Flow: <code>AAPL.c</code> - Cash flow metrics</p>
               <p>• Charts: <code>AAPL.ch</code> - All metrics as charts</p>
-              <p>• Forward: <code>AAPL.f</code> - Forward estimates & forecasts</p>
             </div>
           </div>
         </div>
@@ -183,7 +176,6 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
         case 'balance': return 'Balance Sheet';
         case 'cashflow': return 'Cash Flow';
         case 'detailed': return 'Detailed View';
-        case 'forward': return 'Forward Estimates';
         default: return 'Overview';
       }
     };
@@ -244,7 +236,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
         </div>
         
         <div className="mb-4 text-sm text-gray-600">
-          <p><strong>Tip:</strong> Add ".d" for detailed view, ".i" for income statement, ".b" for balance sheet, ".c" for cashflow, ".ch" for charts, ".q" for quarterly table, ".f" for forward estimates (e.g., AAPL.d, AAPL.i, AAPL.b, AAPL.c, AAPL.ch, AAPL.q, AAPL.f)</p>
+          <p><strong>Tip:</strong> Add ".d" for detailed view, ".i" for income statement, ".b" for balance sheet, ".c" for cashflow, ".ch" for charts, ".q" for quarterly table (e.g., AAPL.d, AAPL.i, AAPL.b, AAPL.c, AAPL.ch, AAPL.q)</p>
         </div>
         
         {searchTerm && filteredTickers.length === 0 && (

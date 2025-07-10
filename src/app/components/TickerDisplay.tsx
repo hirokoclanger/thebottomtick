@@ -939,90 +939,153 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
             const forwardData = data.forwardEstimates || {};
             const annualEstimates = forwardData.annualEstimates || [];
             const quarterlyEstimates = forwardData.quarterlyEstimates || [];
+            const analysisMetrics = forwardData.analysisMetrics || {};
+            const hasError = forwardData.error;
+            
+            if (hasError) {
+              return (
+                <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
+                  <h3 className="text-lg font-bold text-yellow-800 mb-4">Forward Estimates Unavailable</h3>
+                  <p className="text-yellow-700 mb-4">{hasError}</p>
+                  <div className="bg-yellow-100 rounded-lg p-4 border border-yellow-300">
+                    <h4 className="text-sm font-medium text-yellow-800 mb-2">Requirements for Forward Estimates:</h4>
+                    <ul className="text-xs text-yellow-700 space-y-1">
+                      <li>• At least 2 years of quarterly financial data</li>
+                      <li>• Complete revenue, net income, and EPS data</li>
+                      <li>• Regular quarterly reporting pattern</li>
+                    </ul>
+                  </div>
+                </div>
+              );
+            }
             
             return (
               <div className="space-y-6">
+                {/* Analysis Summary */}
+                {analysisMetrics.dataQuality && (
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h4 className="text-sm font-medium text-blue-800 mb-3">Financial Analysis Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                      <div>
+                        <label className="block text-blue-600 mb-1">Revenue Growth</label>
+                        <p className={`font-mono ${analysisMetrics.revenueGrowthRate >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                          {analysisMetrics.revenueGrowthRate >= 0 ? '+' : ''}{analysisMetrics.revenueGrowthRate}%
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-blue-600 mb-1">EPS Growth</label>
+                        <p className={`font-mono ${analysisMetrics.epsGrowthRate >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                          {analysisMetrics.epsGrowthRate >= 0 ? '+' : ''}{analysisMetrics.epsGrowthRate}%
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-blue-600 mb-1">Net Margin</label>
+                        <p className="font-mono text-gray-700">{analysisMetrics.netMargin}%</p>
+                      </div>
+                      <div>
+                        <label className="block text-blue-600 mb-1">Data Quality</label>
+                        <p className={`font-medium ${analysisMetrics.dataQuality === 'Good' ? 'text-green-700' : 'text-yellow-700'}`}>
+                          {analysisMetrics.dataQuality}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Annual Estimates Table */}
                 <div className="bg-white rounded-lg p-6 border border-gray-200">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4">Annual Estimates</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b-2 border-gray-300">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Year</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">EPS ($)</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">High</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Low</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Price Target</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {annualEstimates.map((estimate: any, index: number) => (
-                          <tr key={estimate.year} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                            <td className="py-3 px-4 font-medium text-gray-900">{estimate.year}</td>
-                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.eps}</td>
-                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.high}</td>
-                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.low}</td>
-                            <td className="py-3 px-4 text-center font-mono text-sm text-blue-600">{estimate.priceTarget}</td>
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Annual Estimates (AI-Generated)</h3>
+                  {annualEstimates.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-gray-300">
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Year</th>
+                            <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">EPS ($)</th>
+                            <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">High</th>
+                            <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Low</th>
+                            <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Price Target</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {annualEstimates.map((estimate: any, index: number) => (
+                            <tr key={estimate.year} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                              <td className="py-3 px-4 font-medium text-gray-900">{estimate.year}</td>
+                              <td className="py-3 px-4 text-center font-mono text-sm">{estimate.eps}</td>
+                              <td className="py-3 px-4 text-center font-mono text-sm">{estimate.high}</td>
+                              <td className="py-3 px-4 text-center font-mono text-sm">{estimate.low}</td>
+                              <td className="py-3 px-4 text-center font-mono text-sm text-blue-600">{estimate.priceTarget}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">No annual estimates available.</p>
+                  )}
                 </div>
 
                 {/* Quarterly Estimates Table */}
                 <div className="bg-white rounded-lg p-6 border border-gray-200">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4">Quarterly Estimates</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b-2 border-gray-300">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Quarter</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">EPS($)</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">%Chg</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Sales($B)</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">% Chg</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {quarterlyEstimates.map((estimate: any, index: number) => (
-                          <tr key={estimate.quarter} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                            <td className="py-3 px-4 font-medium text-gray-900">{estimate.quarter}</td>
-                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.eps}</td>
-                            <td className="py-3 px-4 text-center font-mono text-sm">
-                              <span className={`${
-                                estimate.change.startsWith('+') ? 'text-green-600' : 
-                                estimate.change.startsWith('-') ? 'text-red-600' : 'text-gray-600'
-                              }`}>
-                                {estimate.change}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.sales}</td>
-                            <td className="py-3 px-4 text-center font-mono text-sm">
-                              <span className={`${
-                                estimate.salesChange.startsWith('+') ? 'text-blue-600' : 
-                                estimate.salesChange.startsWith('-') ? 'text-red-600' : 'text-gray-600'
-                              }`}>
-                                {estimate.salesChange}
-                              </span>
-                            </td>
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Quarterly Estimates (AI-Generated)</h3>
+                  {quarterlyEstimates.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-gray-300">
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Quarter</th>
+                            <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">EPS($)</th>
+                            <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">%Chg</th>
+                            <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Sales($B)</th>
+                            <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">% Chg</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {quarterlyEstimates.map((estimate: any, index: number) => (
+                            <tr key={estimate.quarter} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                              <td className="py-3 px-4 font-medium text-gray-900">{estimate.quarter}</td>
+                              <td className="py-3 px-4 text-center font-mono text-sm">{estimate.eps}</td>
+                              <td className="py-3 px-4 text-center font-mono text-sm">
+                                <span className={`${
+                                  estimate.change.startsWith('+') ? 'text-green-600' : 
+                                  estimate.change.startsWith('-') ? 'text-red-600' : 'text-gray-600'
+                                }`}>
+                                  {estimate.change}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-center font-mono text-sm">{estimate.sales}</td>
+                              <td className="py-3 px-4 text-center font-mono text-sm">
+                                <span className={`${
+                                  estimate.salesChange.startsWith('+') ? 'text-blue-600' : 
+                                  estimate.salesChange.startsWith('-') ? 'text-red-600' : 'text-gray-600'
+                                }`}>
+                                  {estimate.salesChange}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">No quarterly estimates available.</p>
+                  )}
                 </div>
 
-                {/* Info Box */}
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <h4 className="text-sm font-medium text-blue-800 mb-2">Forward Estimates</h4>
-                  <p className="text-xs text-blue-700">
-                    📊 <strong>Annual Estimates:</strong> Consensus forward-looking earnings per share (EPS) estimates and price targets from analysts.
+                {/* Methodology Info Box */}
+                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                  <h4 className="text-sm font-medium text-green-800 mb-2">AI Financial Analysis Methodology</h4>
+                  <p className="text-xs text-green-700 mb-2">
+                    📊 <strong>Data-Driven Projections:</strong> Forward estimates generated by analyzing historical financial statements, 
+                    growth patterns, profit margins, and industry-typical metrics.
                   </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    📈 <strong>Quarterly Estimates:</strong> Historical and projected quarterly EPS and sales with percentage changes.
-                    Green indicates positive growth, red indicates decline.
+                  <p className="text-xs text-green-700 mb-2">
+                    📈 <strong>Growth Analysis:</strong> Revenue and EPS growth rates calculated from trailing 2-year performance 
+                    with conservative adjustments for sustainability.
+                  </p>
+                  <p className="text-xs text-green-700">
+                    ⚠️ <strong>Disclaimer:</strong> These are algorithmic projections based on historical data and should not be considered 
+                    investment advice. Actual results may vary significantly due to market conditions, company performance, and external factors.
                   </p>
                 </div>
               </div>

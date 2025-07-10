@@ -266,7 +266,6 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
   const isIncomeView = viewType === 'income';
   const isBalanceView = viewType === 'balance';
   const isCashFlowView = viewType === 'cashflow';
-  const isForwardView = viewType === 'forward';
   
   const metricsToProcess = isDetailedView 
     ? Object.keys(facts['us-gaap']) 
@@ -276,40 +275,12 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
         ? balanceSheetMetrics
         : isCashFlowView
           ? cashFlowMetrics
-          : isForwardView
-            ? [] // Forward estimates will be handled separately
-            : keyMetrics;
+          : keyMetrics;
 
-  console.log(`Server processing: viewType=${viewType}, isDetailedView=${isDetailedView}, isForwardView=${isForwardView}, total available metrics=${Object.keys(facts['us-gaap']).length}, processing ${metricsToProcess.length} metrics`);
+  console.log(`Server processing: viewType=${viewType}, isDetailedView=${isDetailedView}, total available metrics=${Object.keys(facts['us-gaap']).length}, processing ${metricsToProcess.length} metrics`);
 
   const processedMetrics: any[] = [];
   const allPeriods = new Set<string>();
-
-  // For forward estimates, return mock data structure immediately
-  if (isForwardView) {
-    return {
-      metrics: [],
-      periods: [],
-      forwardEstimates: {
-        annualEstimates: [
-          { year: '2023', eps: 6.13, high: 6.16, low: 6.10, priceTarget: 190 },
-          { year: '2024', eps: 6.64, high: 6.70, low: 6.58, priceTarget: 200 },
-          { year: '2025', eps: 7.23, high: 7.30, low: 7.16, priceTarget: 210 },
-          { year: '2026', eps: 7.85, high: 7.92, low: 7.78, priceTarget: 220 },
-          { year: '2027', eps: 8.44, high: 8.51, low: 8.37, priceTarget: 230 }
-        ],
-        quarterlyEstimates: [
-          { quarter: 'Mar-18', eps: 1.07, change: '+692%', sales: 29.1, salesChange: '+26%' },
-          { quarter: 'Jun-18', eps: 1.78, change: '+357%', sales: 31.4, salesChange: '+17%' },
-          { quarter: 'Sep-18', eps: 0.52, change: '+206%', sales: 32.7, salesChange: '+29%' },
-          { quarter: 'Dec-18', eps: 1.54, change: '+54%', sales: 43.7, salesChange: '+22%' },
-          { quarter: 'Mar-19', eps: 1.44, change: '+35%', sales: 36.7, salesChange: '+23%' },
-          { quarter: 'Jun-19', eps: 0.40, change: '-78%', sales: 38.5, salesChange: '+23%' },
-          { quarter: 'Sep-19', eps: 1.52, change: '0%', sales: 43.7, salesChange: '+34%' }
-        ]
-      }
-    };
-  }
 
   metricsToProcess.forEach(metricKey => {
     const metric = facts['us-gaap'][metricKey];
