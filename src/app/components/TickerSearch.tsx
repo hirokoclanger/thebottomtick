@@ -89,6 +89,9 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
     } else if (lowerTicker.endsWith('.ch')) {
       viewType = 'charts';
       cleanTicker = ticker.slice(0, -3);
+    } else if (lowerTicker.endsWith('.v')) {
+      viewType = 'visualization';
+      cleanTicker = ticker.slice(0, -2);
     } else if (lowerTicker.endsWith('.i')) {
       viewType = 'income';
       cleanTicker = ticker.slice(0, -2);
@@ -123,6 +126,9 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
       } else if (term.endsWith('.CH')) {
         viewType = 'charts';
         cleanTerm = term.slice(0, -3);
+      } else if (term.endsWith('.V')) {
+        viewType = 'visualization';
+        cleanTerm = term.slice(0, -2);
       } else if (term.endsWith('.I')) {
         viewType = 'income';
         cleanTerm = term.slice(0, -2);
@@ -240,6 +246,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
               <p>• Balance: <code>AAPL.b</code> - Balance sheet metrics</p>
               <p>• Cash Flow: <code>AAPL.c</code> - Cash flow metrics</p>
               <p>• Charts: <code>AAPL.ch</code> - All metrics as charts</p>
+              <p>• Visualization: <code>AAPL.v</code> - Financial flow analysis</p>
             </div>
           </div>
         </div>
@@ -350,7 +357,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Type ticker symbol (e.g., AAPL, MSFT.d for detailed, AAPL.i for income statement)..."
+            placeholder="Type ticker symbol (e.g., AAPL, MSFT.d for detailed, AAPL.v for visualization, AAPL.i for income statement)..."
             className="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -369,7 +376,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
         </div>
         
         <div className="mb-4 text-sm text-gray-600">
-          <p><strong>Tip:</strong> Add ".d" for detailed view, ".i" for income statement, ".b" for balance sheet, ".c" for cashflow, ".ch" for charts, ".q" for quarterly table (e.g., AAPL.d, AAPL.i, AAPL.b, AAPL.c, AAPL.ch, AAPL.q)</p>
+          <p><strong>Tip:</strong> Add ".d" for detailed view, ".v" for visualization, ".i" for income statement, ".b" for balance sheet, ".c" for cashflow, ".ch" for charts, ".q" for quarterly table (e.g., AAPL.d, AAPL.v, AAPL.i, AAPL.b, AAPL.c, AAPL.ch, AAPL.q)</p>
         </div>
         
         {searchTerm && filteredTickers.length === 0 && (

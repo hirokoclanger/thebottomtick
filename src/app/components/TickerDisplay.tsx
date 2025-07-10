@@ -17,6 +17,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import FinancialVisualizationDashboard from './FinancialVisualizationDashboard';
 
 interface TickerDisplayProps {
   ticker: string;
@@ -786,7 +787,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
       <div className="w-[90%] mx-auto px-6 py-6 space-y-6">
         {/* Financial Charts and Data */}
         {(data.facts || data.metrics || data.forwardEstimates) && (() => {
-          const isDetailedView = viewType === 'quarterly' || viewType === 'charts';
+          const isDetailedView = viewType === 'quarterly' || viewType === 'charts' || viewType === 'visualization';
           const isFinancialStatementView = viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed';
           const isSpecialView = isDetailedView || isFinancialStatementView || viewType === 'forward';
           
@@ -831,7 +832,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
             if (hasError) {
               return (
                 <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
-                  <h3 className="text-lg font-bold text-yellow-800 mb-4">Forward Estimates Unavailable</h3>
+                  <h3 className="text-lg font-semibold text-yellow-800 mb-4">Forward Estimates Unavailable</h3>
                   <p className="text-yellow-700 mb-4">{hasError}</p>
                   <div className="bg-yellow-100 rounded-lg p-4 border border-yellow-300">
                     <h4 className="text-sm font-medium text-yellow-800 mb-2">Requirements for Forward Estimates:</h4>
@@ -1127,6 +1128,19 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     Charts display the last 6 years (24 quarters) for readability.
                   </p>
                 </div>
+              </div>
+            );
+          }
+
+          // Visualization view - Financial Flow Analysis
+          if (viewType === 'visualization') {
+            return (
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <FinancialVisualizationDashboard
+                  ticker={ticker}
+                  data={data}
+                  currentQuarter={periods && periods.length > 0 ? periods[0] : 'Q1 2024'}
+                />
               </div>
             );
           }
