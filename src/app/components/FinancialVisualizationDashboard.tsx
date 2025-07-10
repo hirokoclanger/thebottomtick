@@ -152,7 +152,7 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-6">
+    <div className="w-full h-full">
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-2">Financial Flow Analysis - {ticker}</h2>
@@ -260,7 +260,7 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
       </div>
 
       {/* Visualization Area */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="w-full h-full min-h-[600px]">
         {mode === 'heatmap' && (
           <FinancialHeatmap 
             data={comprehensiveData} 

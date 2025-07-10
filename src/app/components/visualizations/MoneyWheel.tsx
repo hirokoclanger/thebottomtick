@@ -303,46 +303,46 @@ const MoneyWheel: React.FC<MoneyWheelProps> = ({ data, quarter, ticker }) => {
         </div>
 
         {/* Segment Details */}
-        <div className="flex-1 space-y-4">
-          <h4 className="font-semibold text-lg">Segment Details</h4>
+        <div className="w-80 bg-white rounded-lg p-3 shadow-sm">
+          <h4 className="font-semibold text-sm mb-3">Segment Details</h4>
           
-          {segments.map((segment) => (
-            <div
-              key={segment.id}
-              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedSegment === segment.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              onClick={() => setSelectedSegment(selectedSegment === segment.id ? null : segment.id)}
-            >
-              <div className="flex items-center space-x-3">
-                <div
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: segment.color }}
-                ></div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{segment.label}</span>
-                    <div className="flex items-center space-x-2">
+          <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto">
+            {segments.map((segment) => (
+              <div
+                key={segment.id}
+                className={`p-2 rounded border cursor-pointer transition-all text-xs ${
+                  selectedSegment === segment.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => setSelectedSegment(selectedSegment === segment.id ? null : segment.id)}
+              >
+                <div className="flex items-start space-x-2">
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0 mt-1"
+                    style={{ backgroundColor: segment.color }}
+                  ></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate text-xs mb-1">{segment.label}</div>
+                    <div className="flex items-center space-x-1 mb-1">
                       {segment.change > 0 ? (
-                        <TrendingUp className="text-green-600" size={16} />
+                        <TrendingUp className="text-green-600" size={8} />
                       ) : (
-                        <TrendingDown className="text-red-600" size={16} />
+                        <TrendingDown className="text-red-600" size={8} />
                       )}
-                      <span className={`font-semibold ${segment.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className={`text-xs font-semibold ${segment.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {segment.change > 0 ? '+' : ''}{segment.change.toFixed(1)}%
                       </span>
                     </div>
-                  </div>
-                  <div className="text-gray-600">{formatValue(segment.value)}</div>
-                  <div className="text-sm text-gray-500">
-                    {((segment.value / totalValue) * 100).toFixed(1)}% of total
+                    <div className="text-xs text-gray-600 mb-1">{formatValue(segment.value)}</div>
+                    <div className="text-xs text-gray-500">
+                      {((segment.value / totalValue) * 100).toFixed(1)}%
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 

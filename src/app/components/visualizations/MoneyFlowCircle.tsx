@@ -32,28 +32,45 @@ const MoneyFlowCircle: React.FC<MoneyFlowCircleProps> = ({ data, quarter, ticker
       return dataPoint ? dataPoint.value : 0;
     };
 
+    const getMetricChange = (metricName: string) => {
+      const metric = data.metrics.find((m: any) => m.name === metricName);
+      if (!metric) return 0;
+      
+      const currentQuarterIndex = data.periods.indexOf(quarter);
+      const previousQuarter = data.periods[currentQuarterIndex + 1];
+      
+      if (!previousQuarter) return 0;
+      
+      const currentData = metric.dataPoints.find((dp: any) => dp.period === quarter);
+      const previousData = metric.dataPoints.find((dp: any) => dp.period === previousQuarter);
+      
+      if (!currentData || !previousData || previousData.value === 0) return 0;
+      
+      return ((currentData.value - previousData.value) / Math.abs(previousData.value)) * 100;
+    };
+
     // Get key financial metrics from all three statements
     return {
       // Income Statement
-      revenue: getMetricValue('Revenues'),
-      grossProfit: getMetricValue('Gross Profit'),
-      operatingIncome: getMetricValue('Operating Income Loss'),
-      netIncome: getMetricValue('Net Income Loss'),
-      costOfRevenue: getMetricValue('Cost Of Goods And Services Sold'),
-      rnd: getMetricValue('Research And Development Expense'),
-      sga: getMetricValue('Selling General And Administrative Expense'),
+      revenue: { value: getMetricValue('Revenues'), change: getMetricChange('Revenues') },
+      grossProfit: { value: getMetricValue('Gross Profit'), change: getMetricChange('Gross Profit') },
+      operatingIncome: { value: getMetricValue('Operating Income Loss'), change: getMetricChange('Operating Income Loss') },
+      netIncome: { value: getMetricValue('Net Income Loss'), change: getMetricChange('Net Income Loss') },
+      costOfRevenue: { value: getMetricValue('Cost Of Goods And Services Sold'), change: getMetricChange('Cost Of Goods And Services Sold') },
+      rnd: { value: getMetricValue('Research And Development Expense'), change: getMetricChange('Research And Development Expense') },
+      sga: { value: getMetricValue('Selling General And Administrative Expense'), change: getMetricChange('Selling General And Administrative Expense') },
       
       // Balance Sheet
-      cash: getMetricValue('Cash And Cash Equivalents At Carrying Value'),
-      assets: getMetricValue('Assets'),
-      currentAssets: getMetricValue('Assets Current'),
-      longTermDebt: getMetricValue('Long Term Debt'),
-      stockholdersEquity: getMetricValue('Stockholders Equity'),
+      cash: { value: getMetricValue('Cash And Cash Equivalents At Carrying Value'), change: getMetricChange('Cash And Cash Equivalents At Carrying Value') },
+      assets: { value: getMetricValue('Assets'), change: getMetricChange('Assets') },
+      currentAssets: { value: getMetricValue('Assets Current'), change: getMetricChange('Assets Current') },
+      longTermDebt: { value: getMetricValue('Long Term Debt'), change: getMetricChange('Long Term Debt') },
+      stockholdersEquity: { value: getMetricValue('Stockholders Equity'), change: getMetricChange('Stockholders Equity') },
       
       // Cash Flow Statement
-      operatingCashFlow: getMetricValue('Net Cash Provided By Used In Operating Activities'),
-      investingCashFlow: getMetricValue('Net Cash Provided By Used In Investing Activities'),
-      financingCashFlow: getMetricValue('Net Cash Provided By Used In Financing Activities')
+      operatingCashFlow: { value: getMetricValue('Net Cash Provided By Used In Operating Activities'), change: getMetricChange('Net Cash Provided By Used In Operating Activities') },
+      investingCashFlow: { value: getMetricValue('Net Cash Provided By Used In Investing Activities'), change: getMetricChange('Net Cash Provided By Used In Investing Activities') },
+      financingCashFlow: { value: getMetricValue('Net Cash Provided By Used In Financing Activities'), change: getMetricChange('Net Cash Provided By Used In Financing Activities') }
     };
   }, [data, quarter]);
 
@@ -62,26 +79,26 @@ const MoneyFlowCircle: React.FC<MoneyFlowCircleProps> = ({ data, quarter, ticker
   }
 
   const flows = [
-    { from: 'Revenue', to: 'Cost of Revenue', amount: Math.abs(realData.costOfRevenue), color: 'red' },
-    { from: 'Revenue', to: 'R&D', amount: Math.abs(realData.rnd), color: 'blue' },
-    { from: 'Revenue', to: 'SG&A', amount: Math.abs(realData.sga), color: 'orange' },
-    { from: 'Revenue', to: 'Gross Profit', amount: Math.abs(realData.grossProfit), color: 'green' },
-    { from: 'Gross Profit', to: 'Operating Income', amount: Math.abs(realData.operatingIncome), color: 'darkgreen' },
-    { from: 'Operating Income', to: 'Net Income', amount: Math.abs(realData.netIncome), color: 'emerald' },
-    { from: 'Operating Income', to: 'Operating Cash Flow', amount: Math.abs(realData.operatingCashFlow), color: 'teal' },
-    { from: 'Operating Cash Flow', to: 'Cash', amount: Math.abs(realData.cash) * 0.1, color: 'gold' }
+    { from: 'Revenue', to: 'Cost of Revenue', amount: Math.abs(realData.costOfRevenue.value), color: 'red' },
+    { from: 'Revenue', to: 'R&D', amount: Math.abs(realData.rnd.value), color: 'blue' },
+    { from: 'Revenue', to: 'SG&A', amount: Math.abs(realData.sga.value), color: 'orange' },
+    { from: 'Revenue', to: 'Gross Profit', amount: Math.abs(realData.grossProfit.value), color: 'green' },
+    { from: 'Gross Profit', to: 'Operating Income', amount: Math.abs(realData.operatingIncome.value), color: 'darkgreen' },
+    { from: 'Operating Income', to: 'Net Income', amount: Math.abs(realData.netIncome.value), color: 'emerald' },
+    { from: 'Operating Income', to: 'Operating Cash Flow', amount: Math.abs(realData.operatingCashFlow.value), color: 'teal' },
+    { from: 'Operating Cash Flow', to: 'Cash', amount: Math.abs(realData.cash.value) * 0.1, color: 'gold' }
   ];
 
   const nodes = [
-    { id: 'Revenue', x: 400, y: 80, value: realData.revenue, color: 'bg-green-500' },
-    { id: 'Cost of Revenue', x: 150, y: 200, value: realData.costOfRevenue, color: 'bg-red-500' },
-    { id: 'R&D', x: 650, y: 200, value: realData.rnd, color: 'bg-blue-500' },
-    { id: 'SG&A', x: 100, y: 380, value: realData.sga, color: 'bg-orange-500' },
-    { id: 'Gross Profit', x: 400, y: 200, value: realData.grossProfit, color: 'bg-green-400' },
-    { id: 'Operating Income', x: 400, y: 320, value: realData.operatingIncome, color: 'bg-green-600' },
-    { id: 'Net Income', x: 280, y: 450, value: realData.netIncome, color: 'bg-emerald-600' },
-    { id: 'Operating Cash Flow', x: 520, y: 450, value: realData.operatingCashFlow, color: 'bg-teal-500' },
-    { id: 'Cash', x: 700, y: 380, value: realData.cash, color: 'bg-yellow-500' }
+    { id: 'Revenue', x: 400, y: 80, value: realData.revenue.value, change: realData.revenue.change, color: 'bg-green-500' },
+    { id: 'Cost of Revenue', x: 150, y: 200, value: realData.costOfRevenue.value, change: realData.costOfRevenue.change, color: 'bg-red-500' },
+    { id: 'R&D', x: 650, y: 200, value: realData.rnd.value, change: realData.rnd.change, color: 'bg-blue-500' },
+    { id: 'SG&A', x: 100, y: 380, value: realData.sga.value, change: realData.sga.change, color: 'bg-orange-500' },
+    { id: 'Gross Profit', x: 400, y: 200, value: realData.grossProfit.value, change: realData.grossProfit.change, color: 'bg-green-400' },
+    { id: 'Operating Income', x: 400, y: 320, value: realData.operatingIncome.value, change: realData.operatingIncome.change, color: 'bg-green-600' },
+    { id: 'Net Income', x: 280, y: 450, value: realData.netIncome.value, change: realData.netIncome.change, color: 'bg-emerald-600' },
+    { id: 'Operating Cash Flow', x: 520, y: 450, value: realData.operatingCashFlow.value, change: realData.operatingCashFlow.change, color: 'bg-teal-500' },
+    { id: 'Cash', x: 700, y: 380, value: realData.cash.value, change: realData.cash.change, color: 'bg-yellow-500' }
   ];
 
   const formatValue = (value: number) => {
