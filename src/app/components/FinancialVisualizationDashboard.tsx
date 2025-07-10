@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, BarChart3, PieChart, Zap, Calendar } from 'lucide-react';
 import FinancialHeatmap from './visualizations/FinancialHeatmap';
 import MoneyFlowCircle from './visualizations/MoneyFlowCircle';
@@ -23,23 +23,70 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
   const [mode, setMode] = useState<VisualizationMode>('heatmap');
   const [selectedQuarter, setSelectedQuarter] = useState(currentQuarter);
   const [timeframe, setTimeframe] = useState<'quarterly' | 'yearly'>('quarterly');
+  const [comprehensiveData, setComprehensiveData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch comprehensive financial data from all three endpoints
+  useEffect(() => {
+    const fetchComprehensiveData = async () => {
+      try {
+        setLoading(true);
+        const [incomeRes, balanceRes, cashFlowRes] = await Promise.all([
+          fetch(`/api/tickers/${ticker}?view=income`),
+          fetch(`/api/tickers/${ticker}?view=balance`),
+          fetch(`/api/tickers/${ticker}?view=cashflow`)
+        ]);
+
+        const [incomeData, balanceData, cashFlowData] = await Promise.all([
+          incomeRes.json(),
+          balanceRes.json(),
+          cashFlowRes.json()
+        ]);
+
+        // Combine all metrics from all three statements
+        const combinedMetrics = [
+          ...incomeData.metrics.map((m: any) => ({ ...m, statement: 'income' })),
+          ...balanceData.metrics.map((m: any) => ({ ...m, statement: 'balance' })),
+          ...cashFlowData.metrics.map((m: any) => ({ ...m, statement: 'cashflow' }))
+        ];
+
+        // Use the periods from the main data or from any of the statements
+        const periods = data?.periods || incomeData.periods || balanceData.periods || cashFlowData.periods;
+
+        setComprehensiveData({
+          metrics: combinedMetrics,
+          periods: periods,
+          ticker: ticker,
+          incomeData,
+          balanceData,
+          cashFlowData
+        });
+      } catch (error) {
+        console.error('Error fetching comprehensive financial data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchComprehensiveData();
+  }, [ticker, data]);
 
   // Get available quarters (up to 6 quarters or 3 years based on timeframe)
   const availableQuarters = useMemo(() => {
-    if (!data || !data.periods) return [];
+    if (!comprehensiveData || !comprehensiveData.periods) return [];
     
     if (timeframe === 'yearly') {
       // Group by year and take up to 3 years
-      const yearlyPeriods = data.periods.filter((period: string) => {
+      const yearlyPeriods = comprehensiveData.periods.filter((period: string) => {
         const [year, quarter] = period.split('-');
         return quarter === 'Q4'; // Take only Q4 for yearly view
       }).slice(0, 3);
       return yearlyPeriods;
     } else {
       // Use the periods from the data structure
-      return data.periods.slice(0, 6); // Last 6 quarters (18 months)
+      return comprehensiveData.periods.slice(0, 6); // Last 6 quarters (18 months)
     }
-  }, [data, timeframe]);
+  }, [comprehensiveData, timeframe]);
 
   // Update selected quarter when timeframe changes
   React.useEffect(() => {
@@ -63,13 +110,13 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
 
   // Prepare visualization data
   const visualizationData = useMemo(() => {
-    if (!data || !data.metrics || !data.periods) {
+    if (!comprehensiveData || !comprehensiveData.metrics || !comprehensiveData.periods) {
       return null;
     }
     
-    // Create a mock quarter data structure from the metrics
+    // For other visualizations, create the mock structure
     const quarterData: { [key: string]: number } = {};
-    data.metrics.forEach((metric: any) => {
+    comprehensiveData.metrics.forEach((metric: any) => {
       const dataPoint = metric.dataPoints.find((dp: any) => dp.period === selectedQuarter);
       if (dataPoint) {
         quarterData[metric.name.replace(/\s+/g, '')] = dataPoint.value;
@@ -77,7 +124,7 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
     });
     
     return prepareVisualizationData(quarterData, selectedQuarter);
-  }, [data, selectedQuarter]);
+  }, [comprehensiveData, selectedQuarter]);
 
   const modes = [
     { id: 'heatmap', label: 'Heatmap', icon: BarChart3, description: 'Size & color show financial changes' },
@@ -85,7 +132,18 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
     { id: 'wheel', label: 'Money Wheel', icon: PieChart, description: 'Static circular view of finances' }
   ];
 
-  if (!visualizationData) {
+  if (loading) {
+    return (
+      <div className="w-full max-w-7xl mx-auto p-6">
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+          <p className="mt-4 text-gray-600">Loading comprehensive financial data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!comprehensiveData) {
     return (
       <div className="p-8 text-center">
         <div className="text-gray-500">No financial data available for visualization</div>
@@ -205,7 +263,7 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
       <div className="bg-white rounded-lg shadow-lg p-6">
         {mode === 'heatmap' && (
           <FinancialHeatmap 
-            data={visualizationData} 
+            data={comprehensiveData} 
             quarter={selectedQuarter}
             ticker={ticker}
           />
@@ -213,7 +271,7 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
         
         {mode === 'flow' && (
           <MoneyFlowCircle 
-            data={visualizationData} 
+            data={comprehensiveData} 
             quarter={selectedQuarter}
             ticker={ticker}
           />
@@ -221,7 +279,7 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
         
         {mode === 'wheel' && (
           <MoneyWheel 
-            data={visualizationData} 
+            data={comprehensiveData} 
             quarter={selectedQuarter}
             ticker={ticker}
           />
@@ -229,43 +287,45 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
       </div>
 
       {/* Key Insights */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="flex items-center space-x-2 mb-2">
-            <TrendingUp className="text-green-600" size={20} />
-            <span className="font-semibold text-green-800">Growing Areas</span>
+      {visualizationData && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="flex items-center space-x-2 mb-2">
+              <TrendingUp className="text-green-600" size={20} />
+              <span className="font-semibold text-green-800">Growing Areas</span>
+            </div>
+            <ul className="text-sm text-green-700 space-y-1">
+              {visualizationData.growingAreas.map((area, index) => (
+                <li key={index}>• {area}</li>
+              ))}
+            </ul>
           </div>
-          <ul className="text-sm text-green-700 space-y-1">
-            {visualizationData.growingAreas.map((area, index) => (
-              <li key={index}>• {area}</li>
-            ))}
-          </ul>
-        </div>
 
-        <div className="bg-red-50 p-4 rounded-lg">
-          <div className="flex items-center space-x-2 mb-2">
-            <TrendingDown className="text-red-600" size={20} />
-            <span className="font-semibold text-red-800">Declining Areas</span>
+          <div className="bg-red-50 p-4 rounded-lg">
+            <div className="flex items-center space-x-2 mb-2">
+              <TrendingDown className="text-red-600" size={20} />
+              <span className="font-semibold text-red-800">Declining Areas</span>
+            </div>
+            <ul className="text-sm text-red-700 space-y-1">
+              {visualizationData.decliningAreas.map((area, index) => (
+                <li key={index}>• {area}</li>
+              ))}
+            </ul>
           </div>
-          <ul className="text-sm text-red-700 space-y-1">
-            {visualizationData.decliningAreas.map((area, index) => (
-              <li key={index}>• {area}</li>
-            ))}
-          </ul>
-        </div>
 
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <div className="flex items-center space-x-2 mb-2">
-            <BarChart3 className="text-blue-600" size={20} />
-            <span className="font-semibold text-blue-800">Key Metrics</span>
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="flex items-center space-x-2 mb-2">
+              <BarChart3 className="text-blue-600" size={20} />
+              <span className="font-semibold text-blue-800">Key Metrics</span>
+            </div>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Revenue: ${visualizationData.keyMetrics.revenue}</li>
+              <li>• Profit: ${visualizationData.keyMetrics.profit}</li>
+              <li>• Cash: ${visualizationData.keyMetrics.cash}</li>
+            </ul>
           </div>
-          <ul className="text-sm text-blue-700 space-y-1">
-            <li>• Revenue: ${visualizationData.keyMetrics.revenue}</li>
-            <li>• Profit: ${visualizationData.keyMetrics.profit}</li>
-            <li>• Cash: ${visualizationData.keyMetrics.cash}</li>
-          </ul>
         </div>
-      </div>
+      )}
     </div>
   );
 };

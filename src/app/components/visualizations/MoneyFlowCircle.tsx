@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowRight, DollarSign } from 'lucide-react';
 
 interface MoneyFlowCircleProps {
@@ -19,25 +19,69 @@ const MoneyFlowCircle: React.FC<MoneyFlowCircleProps> = ({ data, quarter, ticker
     return () => clearInterval(interval);
   }, []);
 
+  // Extract real financial data from comprehensive data
+  const realData = useMemo(() => {
+    if (!data || !data.metrics) {
+      return null;
+    }
+
+    const getMetricValue = (metricName: string) => {
+      const metric = data.metrics.find((m: any) => m.name === metricName);
+      if (!metric) return 0;
+      const dataPoint = metric.dataPoints.find((dp: any) => dp.period === quarter);
+      return dataPoint ? dataPoint.value : 0;
+    };
+
+    // Get key financial metrics from all three statements
+    return {
+      // Income Statement
+      revenue: getMetricValue('Revenues'),
+      grossProfit: getMetricValue('Gross Profit'),
+      operatingIncome: getMetricValue('Operating Income Loss'),
+      netIncome: getMetricValue('Net Income Loss'),
+      costOfRevenue: getMetricValue('Cost Of Goods And Services Sold'),
+      rnd: getMetricValue('Research And Development Expense'),
+      sga: getMetricValue('Selling General And Administrative Expense'),
+      
+      // Balance Sheet
+      cash: getMetricValue('Cash And Cash Equivalents At Carrying Value'),
+      assets: getMetricValue('Assets'),
+      currentAssets: getMetricValue('Assets Current'),
+      longTermDebt: getMetricValue('Long Term Debt'),
+      stockholdersEquity: getMetricValue('Stockholders Equity'),
+      
+      // Cash Flow Statement
+      operatingCashFlow: getMetricValue('Net Cash Provided By Used In Operating Activities'),
+      investingCashFlow: getMetricValue('Net Cash Provided By Used In Investing Activities'),
+      financingCashFlow: getMetricValue('Net Cash Provided By Used In Financing Activities')
+    };
+  }, [data, quarter]);
+
+  if (!realData) {
+    return <div className="p-8 text-center">No financial data available for visualization</div>;
+  }
+
   const flows = [
-    { from: 'Revenue', to: 'Operations', amount: data.revenue * 0.6, color: 'green' },
-    { from: 'Revenue', to: 'R&D', amount: data.rnd, color: 'blue' },
-    { from: 'Revenue', to: 'Inventory', amount: data.inventory * 0.1, color: 'orange' },
-    { from: 'Operations', to: 'Investments', amount: data.investments, color: 'purple' },
-    { from: 'Operations', to: 'Debt Payments', amount: data.debt * 0.05, color: 'red' },
-    { from: 'Operations', to: 'Cash', amount: data.cash * 0.2, color: 'teal' },
-    { from: 'Cash', to: 'Profit', amount: data.revenue * 0.15, color: 'gold' }
+    { from: 'Revenue', to: 'Cost of Revenue', amount: Math.abs(realData.costOfRevenue), color: 'red' },
+    { from: 'Revenue', to: 'R&D', amount: Math.abs(realData.rnd), color: 'blue' },
+    { from: 'Revenue', to: 'SG&A', amount: Math.abs(realData.sga), color: 'orange' },
+    { from: 'Revenue', to: 'Gross Profit', amount: Math.abs(realData.grossProfit), color: 'green' },
+    { from: 'Gross Profit', to: 'Operating Income', amount: Math.abs(realData.operatingIncome), color: 'darkgreen' },
+    { from: 'Operating Income', to: 'Net Income', amount: Math.abs(realData.netIncome), color: 'emerald' },
+    { from: 'Operating Income', to: 'Operating Cash Flow', amount: Math.abs(realData.operatingCashFlow), color: 'teal' },
+    { from: 'Operating Cash Flow', to: 'Cash', amount: Math.abs(realData.cash) * 0.1, color: 'gold' }
   ];
 
   const nodes = [
-    { id: 'Revenue', x: 400, y: 80, value: data.revenue, color: 'bg-green-500' },
-    { id: 'Operations', x: 150, y: 200, value: data.operatingExpenses, color: 'bg-blue-500' },
-    { id: 'R&D', x: 650, y: 200, value: data.rnd, color: 'bg-purple-500' },
-    { id: 'Inventory', x: 100, y: 380, value: data.inventory, color: 'bg-orange-500' },
-    { id: 'Investments', x: 280, y: 450, value: data.investments, color: 'bg-indigo-500' },
-    { id: 'Debt Payments', x: 520, y: 450, value: data.debt * 0.05, color: 'bg-red-500' },
-    { id: 'Cash', x: 700, y: 380, value: data.cash, color: 'bg-teal-500' },
-    { id: 'Profit', x: 400, y: 520, value: data.revenue * 0.15, color: 'bg-yellow-500' }
+    { id: 'Revenue', x: 400, y: 80, value: realData.revenue, color: 'bg-green-500' },
+    { id: 'Cost of Revenue', x: 150, y: 200, value: realData.costOfRevenue, color: 'bg-red-500' },
+    { id: 'R&D', x: 650, y: 200, value: realData.rnd, color: 'bg-blue-500' },
+    { id: 'SG&A', x: 100, y: 380, value: realData.sga, color: 'bg-orange-500' },
+    { id: 'Gross Profit', x: 400, y: 200, value: realData.grossProfit, color: 'bg-green-400' },
+    { id: 'Operating Income', x: 400, y: 320, value: realData.operatingIncome, color: 'bg-green-600' },
+    { id: 'Net Income', x: 280, y: 450, value: realData.netIncome, color: 'bg-emerald-600' },
+    { id: 'Operating Cash Flow', x: 520, y: 450, value: realData.operatingCashFlow, color: 'bg-teal-500' },
+    { id: 'Cash', x: 700, y: 380, value: realData.cash, color: 'bg-yellow-500' }
   ];
 
   const formatValue = (value: number) => {
@@ -72,8 +116,8 @@ const MoneyFlowCircle: React.FC<MoneyFlowCircleProps> = ({ data, quarter, ticker
   return (
     <div className="w-full">
       <div className="mb-4">
-        <h3 className="text-xl font-bold mb-2">Money Flow Circle - {ticker}</h3>
-        <p className="text-gray-600">Watch money flow through different business areas</p>
+        <h3 className="text-xl font-bold mb-2">Comprehensive Money Flow - {ticker}</h3>
+        <p className="text-gray-600">Watch money flow through all business areas using complete financial data</p>
       </div>
 
       <div className="relative bg-gray-50 rounded-lg p-8" style={{ height: '650px' }}>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { RotateCcw, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface MoneyWheelProps {
@@ -13,24 +13,86 @@ const MoneyWheel: React.FC<MoneyWheelProps> = ({ data, quarter, ticker }) => {
   const [rotation, setRotation] = useState(0);
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
 
-  // Remove automatic rotation - wheel is now static
-  // useEffect(() => {
-  //   const interval = setInterval(() => {
-  //     setRotation(prev => (prev + 1) % 360);
-  //   }, 50);
-  //   return () => clearInterval(interval);
-  // }, []);
+  // Extract real financial data from comprehensive data
+  const realData = useMemo(() => {
+    if (!data || !data.metrics || !data.periods) {
+      return null;
+    }
+
+    const getMetricValue = (metricName: string) => {
+      const metric = data.metrics.find((m: any) => m.name === metricName);
+      if (!metric) return 0;
+      const dataPoint = metric.dataPoints.find((dp: any) => dp.period === quarter);
+      return dataPoint ? dataPoint.value : 0;
+    };
+
+    const getMetricChange = (metricName: string) => {
+      const metric = data.metrics.find((m: any) => m.name === metricName);
+      if (!metric) return 0;
+      
+      const currentQuarterIndex = data.periods.indexOf(quarter);
+      const previousQuarter = data.periods[currentQuarterIndex + 1];
+      
+      if (!previousQuarter) return 0;
+      
+      const currentData = metric.dataPoints.find((dp: any) => dp.period === quarter);
+      const previousData = metric.dataPoints.find((dp: any) => dp.period === previousQuarter);
+      
+      if (!currentData || !previousData || previousData.value === 0) return 0;
+      
+      return ((currentData.value - previousData.value) / Math.abs(previousData.value)) * 100;
+    };
+
+    return {
+      // Income Statement
+      revenue: { value: getMetricValue('Revenues'), change: getMetricChange('Revenues') },
+      grossProfit: { value: getMetricValue('Gross Profit'), change: getMetricChange('Gross Profit') },
+      operatingIncome: { value: getMetricValue('Operating Income Loss'), change: getMetricChange('Operating Income Loss') },
+      netIncome: { value: getMetricValue('Net Income Loss'), change: getMetricChange('Net Income Loss') },
+      costOfRevenue: { value: Math.abs(getMetricValue('Cost Of Goods And Services Sold')), change: getMetricChange('Cost Of Goods And Services Sold') },
+      rnd: { value: Math.abs(getMetricValue('Research And Development Expense')), change: getMetricChange('Research And Development Expense') },
+      sga: { value: Math.abs(getMetricValue('Selling General And Administrative Expense')), change: getMetricChange('Selling General And Administrative Expense') },
+      
+      // Balance Sheet
+      cash: { value: getMetricValue('Cash And Cash Equivalents At Carrying Value'), change: getMetricChange('Cash And Cash Equivalents At Carrying Value') },
+      assets: { value: getMetricValue('Assets'), change: getMetricChange('Assets') },
+      currentAssets: { value: getMetricValue('Assets Current'), change: getMetricChange('Assets Current') },
+      longTermDebt: { value: Math.abs(getMetricValue('Long Term Debt')), change: getMetricChange('Long Term Debt') },
+      stockholdersEquity: { value: getMetricValue('Stockholders Equity'), change: getMetricChange('Stockholders Equity') },
+      
+      // Cash Flow Statement
+      operatingCashFlow: { value: getMetricValue('Net Cash Provided By Used In Operating Activities'), change: getMetricChange('Net Cash Provided By Used In Operating Activities') },
+      investingCashFlow: { value: Math.abs(getMetricValue('Net Cash Provided By Used In Investing Activities')), change: getMetricChange('Net Cash Provided By Used In Investing Activities') },
+      financingCashFlow: { value: Math.abs(getMetricValue('Net Cash Provided By Used In Financing Activities')), change: getMetricChange('Net Cash Provided By Used In Financing Activities') }
+    };
+  }, [data, quarter]);
+
+  if (!realData) {
+    return <div className="p-8 text-center">No financial data available for visualization</div>;
+  }
 
   const segments = [
-    { id: 'revenue', label: 'Revenue', value: data.revenue, change: data.revenueChange, color: '#10b981' },
-    { id: 'opex', label: 'Operating Expenses', value: data.operatingExpenses, change: data.opexChange, color: '#3b82f6' },
-    { id: 'rd', label: 'R&D', value: data.rnd, change: data.rdChange, color: '#8b5cf6' },
-    { id: 'assets', label: 'Assets', value: data.assets, change: data.assetsChange, color: '#f59e0b' },
-    { id: 'debt', label: 'Debt', value: data.debt, change: data.debtChange, color: '#ef4444' },
-    { id: 'cash', label: 'Cash', value: data.cash, change: data.cashChange, color: '#14b8a6' },
-    { id: 'inventory', label: 'Inventory', value: data.inventory, change: data.inventoryChange, color: '#f97316' },
-    { id: 'investments', label: 'Investments', value: data.investments, change: data.investmentsChange, color: '#6366f1' }
-  ];
+    // Income Statement segments
+    { id: 'revenue', label: 'Revenue', value: realData.revenue.value, change: realData.revenue.change, color: '#10b981' },
+    { id: 'grossProfit', label: 'Gross Profit', value: Math.abs(realData.grossProfit.value), change: realData.grossProfit.change, color: '#059669' },
+    { id: 'operatingIncome', label: 'Operating Income', value: Math.abs(realData.operatingIncome.value), change: realData.operatingIncome.change, color: '#047857' },
+    { id: 'netIncome', label: 'Net Income', value: Math.abs(realData.netIncome.value), change: realData.netIncome.change, color: '#065f46' },
+    { id: 'costOfRevenue', label: 'Cost of Revenue', value: realData.costOfRevenue.value, change: realData.costOfRevenue.change, color: '#ef4444' },
+    { id: 'rnd', label: 'R&D', value: realData.rnd.value, change: realData.rnd.change, color: '#8b5cf6' },
+    { id: 'sga', label: 'SG&A', value: realData.sga.value, change: realData.sga.change, color: '#3b82f6' },
+    
+    // Balance Sheet segments
+    { id: 'cash', label: 'Cash', value: realData.cash.value, change: realData.cash.change, color: '#14b8a6' },
+    { id: 'assets', label: 'Total Assets', value: realData.assets.value, change: realData.assets.change, color: '#f59e0b' },
+    { id: 'currentAssets', label: 'Current Assets', value: realData.currentAssets.value, change: realData.currentAssets.change, color: '#d97706' },
+    { id: 'longTermDebt', label: 'Long Term Debt', value: realData.longTermDebt.value, change: realData.longTermDebt.change, color: '#dc2626' },
+    { id: 'stockholdersEquity', label: 'Stockholders Equity', value: realData.stockholdersEquity.value, change: realData.stockholdersEquity.change, color: '#7c3aed' },
+    
+    // Cash Flow segments
+    { id: 'operatingCashFlow', label: 'Operating Cash Flow', value: Math.abs(realData.operatingCashFlow.value), change: realData.operatingCashFlow.change, color: '#0891b2' },
+    { id: 'investingCashFlow', label: 'Investing Cash Flow', value: realData.investingCashFlow.value, change: realData.investingCashFlow.change, color: '#0284c7' },
+    { id: 'financingCashFlow', label: 'Financing Cash Flow', value: realData.financingCashFlow.value, change: realData.financingCashFlow.change, color: '#0369a1' }
+  ].filter(segment => segment.value > 0); // Only show segments with actual values
 
   const totalValue = segments.reduce((sum, segment) => sum + segment.value, 0);
 
@@ -104,8 +166,8 @@ const MoneyWheel: React.FC<MoneyWheelProps> = ({ data, quarter, ticker }) => {
   return (
     <div className="w-full">
       <div className="mb-4">
-        <h3 className="text-xl font-bold mb-2">Money Wheel - {ticker}</h3>
-        <p className="text-gray-600">Static circular view of financial segments</p>
+        <h3 className="text-xl font-bold mb-2">Comprehensive Money Wheel - {ticker}</h3>
+        <p className="text-gray-600">Complete financial overview from all three statements</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
