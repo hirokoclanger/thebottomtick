@@ -682,7 +682,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                         <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[240px]">
                           Metric
                         </th>
-                        {periods.map(period => (
+                        {periods.map((period: string) => (
                           <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
                             {period}
                           </th>
@@ -690,7 +690,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                       </tr>
                     </thead>
                     <tbody>
-                      {metrics.map((metric, index) => (
+                      {metrics.map((metric: ProcessedMetric, index: number) => (
                         <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                           <td className="py-3 px-4 w-[350px]">
                             <div>
@@ -699,8 +699,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                               </div>
                             </div>
                           </td>
-                          {periods.map(period => {
-                            const dataPoint = metric.dataPoints.find(dp => dp.period === period);
+                          {periods.map((period: string) => {
+                            const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);
                             return (
                               <td key={period} className="py-3 px-4 text-right">
                                 {dataPoint ? (
@@ -766,7 +766,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                       </tr>
                     </thead>
                     <tbody>
-                      {metrics.map((metric, index) => {
+                      {metrics.map((metric: ProcessedMetric, index: number) => {
                         const trends = calculateMetricTrend(metric, shortTermPeriods);
                         return (
                           <tr key={metric.name} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
@@ -839,7 +839,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                   <div className="mt-4">
                     {/* Charts show only last 6 years (24 quarters) for readability */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {metrics.slice(0, 8).map((metric) => (
+                      {metrics.slice(0, 8).map((metric: ProcessedMetric) => (
                         <MetricChart key={metric.name} metric={metric} />
                       ))}
                     </div>
@@ -875,7 +875,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                             <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[240px]">
                               Metric
                             </th>
-                            {periods.map(period => (
+                            {periods.map((period: string) => (
                               <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
                                 {period}
                               </th>
@@ -883,7 +883,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                           </tr>
                         </thead>
                         <tbody>
-                          {metrics.map((metric, index) => (
+                          {metrics.map((metric: ProcessedMetric, index: number) => (
                             <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                               <td className="py-3 px-4 w-[350px]">
                                 <div>
@@ -892,8 +892,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                                   </div>
                                 </div>
                               </td>
-                              {periods.map(period => {
-                                const dataPoint = metric.dataPoints.find(dp => dp.period === period);
+                              {periods.map((period: string) => {
+                                const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);
                                 return (
                                   <td key={period} className="py-3 px-4 text-right">
                                     {dataPoint ? (

@@ -30,8 +30,8 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
     ? Object.keys(facts['us-gaap']) 
     : keyMetrics;
 
-  const processedMetrics = [];
-  const allPeriods = new Set();
+  const processedMetrics: any[] = [];
+  const allPeriods = new Set<string>();
 
   metricsToProcess.forEach(metricKey => {
     const metric = facts['us-gaap'][metricKey];
