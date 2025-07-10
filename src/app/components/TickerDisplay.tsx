@@ -16,7 +16,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface TickerDisplayProps {
   ticker: string;
@@ -560,11 +560,15 @@ function getShortMetricName(name: string): string {
 export default function TickerDisplay({ ticker, data, onClear, viewType = 'default' }: TickerDisplayProps) {
   const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
   const [shortTermPeriods, setShortTermPeriods] = useState(3);
+  const [isRawDataView, setIsRawDataView] = useState(false); // Toggle for income statement view
+  const [showDescriptions, setShowDescriptions] = useState(false); // Toggle for description column visibility
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Keyboard shortcut handling for trend period adjustment
+  // Keyboard shortcut handling for trend period adjustment, view switching, and horizontal scrolling
   useEffect(() => {
     let inputBuffer = '';
     let isTypingT = false;
+    let isTypingQ = false;
 
     const handleKeyPress = (event: KeyboardEvent) => {
       // Ignore if user is typing in an input field
@@ -574,8 +578,72 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
 
       const key = event.key.toLowerCase();
 
-      if (key === 't' && !isTypingT) {
+      // Handle horizontal scrolling with j/k keys
+      if (key === 'j' || key === 'k') {
+        if (scrollContainerRef.current) {
+          const scrollAmount = 200; // Pixels to scroll
+          const currentScroll = scrollContainerRef.current.scrollLeft;
+          
+          if (key === 'j') {
+            // Scroll right
+            scrollContainerRef.current.scrollTo({
+              left: currentScroll - scrollAmount,
+              behavior: 'smooth'
+            });
+          } else {
+            // Scroll left
+            scrollContainerRef.current.scrollTo({
+              left: currentScroll + scrollAmount,
+              behavior: 'smooth'
+            });
+          }
+          event.preventDefault();
+          return;
+        }
+      }
+
+      // Handle arrow key horizontal scrolling
+      if (key === 'arrowleft' || key === 'arrowright') {
+        if (scrollContainerRef.current) {
+          const scrollAmount = 200; // Pixels to scroll
+          const currentScroll = scrollContainerRef.current.scrollLeft;
+          
+          if (key === 'arrowright') {
+            // Scroll right
+            scrollContainerRef.current.scrollTo({
+              left: currentScroll + scrollAmount,
+              behavior: 'smooth'
+            });
+          } else {
+            // Scroll left
+            scrollContainerRef.current.scrollTo({
+              left: currentScroll - scrollAmount,
+              behavior: 'smooth'
+            });
+          }
+          event.preventDefault();
+          return;
+        }
+      }
+
+      // Handle 'd' key for description toggle
+      if (key === 'd' && !isTypingT && !isTypingQ) {
+        setShowDescriptions(prev => !prev);
+        event.preventDefault();
+        return;
+      }
+
+      // Handle 't' key sequences
+      if (key === 't' && !isTypingT && !isTypingQ) {
         isTypingT = true;
+        inputBuffer = '';
+        event.preventDefault();
+        return;
+      }
+
+      // Handle 'q' key sequences for quarter changes
+      if (key === 'q' && !isTypingT && !isTypingQ) {
+        isTypingQ = true;
         inputBuffer = '';
         event.preventDefault();
         return;
@@ -583,8 +651,18 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
 
       if (isTypingT) {
         if (key === 'enter') {
+          // For income statement view: toggle between table and normal view
+          if (viewType === 'income' && inputBuffer === '') {
+            setIsRawDataView(prev => !prev);
+            isTypingT = false;
+            inputBuffer = '';
+            event.preventDefault();
+            return;
+          }
+          
+          // For other views: change trend periods (legacy behavior)
           const num = parseInt(inputBuffer);
-          if (!isNaN(num) && num >= 2 && num <= 12) {
+          if (!isNaN(num) && num >= 1 && num <= 6) {
             setShortTermPeriods(num);
           }
           isTypingT = false;
@@ -597,13 +675,36 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
           isTypingT = false;
           inputBuffer = '';
           event.preventDefault();
+        } else {
+          // Any other key should cancel the T sequence
+          isTypingT = false;
+          inputBuffer = '';
+        }
+      }
+
+      if (isTypingQ) {
+        if (key === 'enter') {
+          const num = parseInt(inputBuffer);
+          if (!isNaN(num) && num >= 1 && num <= 6) {
+            setShortTermPeriods(num);
+          }
+          isTypingQ = false;
+          inputBuffer = '';
+          event.preventDefault();
+        } else if (key >= '0' && key <= '9') {
+          inputBuffer += key;
+          event.preventDefault();
+        } else if (key === 'escape' || key === 'backspace') {
+          isTypingQ = false;
+          inputBuffer = '';
+          event.preventDefault();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  }, [viewType]);
 
   if (!data) {
     return (
@@ -806,40 +907,55 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                   <h2 className="text-xl font-bold text-gray-800">Financial Data (Quarterly)</h2>
                 </div>
                 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" ref={scrollContainerRef}>
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b-2 border-gray-300">
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[180px]">
+                        <th className="text-left py-2 px-3 font-semibold text-gray-700 text-xs w-[350px]">
                           Metric
                         </th>
-                        {periods.map((period: string) => (
-                          <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
-                            {period}
-                          </th>
-                        ))}
+                        {showDescriptions && (
+                          <th className="text-left py-2 px-3 font-semibold text-gray-700 text-xs min-w-[250px]">Description</th>
+                        )}
+                        {periods.map((period: string) => {
+                          const [year, quarter] = period.split('-');
+                          return (
+                            <th key={period} className="text-right py-2 px-3 font-semibold text-gray-700 text-xs min-w-[140px]">
+                              <div className="text-center">
+                                <div className="text-xs">{year}</div>
+                                <div className="text-xs font-normal text-gray-500">{quarter}</div>
+                              </div>
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
                       {metrics.map((metric: ProcessedMetric, index: number) => (
                         <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="py-3 px-4 w-[200px]">
-                            <div>
-                              <div className="font-medium text-gray-900 cursor-help" title={metric.description}>
-                                {metric.name}
-                              </div>
+                          <td className="py-2 px-3 w-[350px]">
+                            <div className="font-medium text-gray-900 text-xs">
+                              {metric.name}
                             </div>
                           </td>
+                          {/* Description column - shown only when toggled on */}
+                          {showDescriptions && (
+                            <td className="py-2 px-3 min-w-[250px]">
+                              <div className="text-xs text-gray-500">
+                                {metric.description}
+                              </div>
+                            </td>
+                          )}
                           {periods.map((period: string) => {
                             const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);
                             return (
-                              <td key={period} className="py-3 px-4 text-right">
+                              <td key={period} className="py-2 px-3 text-right">
                                 {dataPoint ? (
-                                  <span className="font-mono text-sm text-gray-800">
+                                  <span className="font-mono text-xs text-gray-800">
                                     {formatValue(dataPoint.value, metric.unit)}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-500 text-sm">—</span>
+                                  <span className="text-gray-500 text-xs">—</span>
                                 )}
                               </td>
                             );
@@ -903,20 +1019,49 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                       </span>
                     )}
                   </h2>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-600">Short-term periods:</label>
-                    <select
-                      value={shortTermPeriods}
-                      onChange={(e) => setShortTermPeriods(Number(e.target.value))}
-                      className="px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value={1}>1Q</option>
-                      <option value={2}>2Q</option>
-                      <option value={3}>3Q</option>
-                      <option value={4}>4Q</option>
-                      <option value={5}>5Q</option>
-                      <option value={6}>6Q</option>
-                    </select>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-gray-600">Short-term periods:</label>
+                      <select
+                        value={shortTermPeriods}
+                        onChange={(e) => setShortTermPeriods(Number(e.target.value))}
+                        className="px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value={1}>1Q</option>
+                        <option value={2}>2Q</option>
+                        <option value={3}>3Q</option>
+                        <option value={4}>4Q</option>
+                        <option value={5}>5Q</option>
+                        <option value={6}>6Q</option>
+                      </select>
+                    </div>
+                    
+                    {/* Toggle Switch for Income Statement View */}
+                    {viewType === 'income' && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">View:</label>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs ${!isRawDataView ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                            Summary
+                          </span>
+                          <button
+                            onClick={() => setIsRawDataView(!isRawDataView)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                              isRawDataView ? 'bg-blue-600' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform duration-200 ${
+                                isRawDataView ? 'translate-x-5' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                          <span className={`text-xs ${isRawDataView ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                            Raw Data
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -934,32 +1079,59 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     </div>
                   )}
                   <div className="text-gray-400">
-                    💡 Quick shortcut: Press 't' + number + Enter to change trend period (e.g., t4 + Enter for 4 quarters)
+                    💡 Quick shortcuts: 
+                    {viewType === 'income' ? (
+                      <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 't' + Enter to toggle view • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
+                    ) : (
+                      <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
+                    )}
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto" ref={scrollContainerRef}>
+                  <table className="w-full text-sm transition-all duration-300 ease-in-out">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-2 px-3 font-semibold text-gray-700">Metric</th>
-                        <th className="text-right py-2 px-3 font-semibold text-gray-700">Latest Value</th>
-                        <th className="text-center py-2 px-3 font-semibold text-gray-700">Overall Trend</th>
-                        <th className="text-center py-2 px-3 font-semibold text-gray-700">
-                          <div className="flex items-center justify-center gap-1">
-                            <span>{shortTermPeriods}Q Trend</span>
-                            <span className="text-xs text-gray-400 font-normal">(t+num)</span>
-                          </div>
-                        </th>
-                        {/* Show quarterly trend percentages only in detailed and income views */}
-                        {(viewType === 'detailed' || viewType === 'income') && (
+                        <th className="text-left py-2 px-3 font-semibold text-gray-700 text-xs w-[350px]">Metric</th>
+                        {showDescriptions && (
+                          <th className="text-left py-2 px-3 font-semibold text-gray-700 text-xs min-w-[250px]">Description</th>
+                        )}
+                        {/* Dynamic headers based on view mode for income statement */}
+                        {viewType === 'income' && isRawDataView ? (
+                          // Raw Data View - show quarterly periods with 2-row headers
+                          periods.map((period: string) => {
+                            const [year, quarter] = period.split('-');
+                            return (
+                              <th key={period} className="text-right py-2 px-3 font-semibold text-gray-700 text-xs min-w-[140px]">
+                                <div className="text-center">
+                                  <div className="text-xs">{year}</div>
+                                  <div className="text-xs font-normal text-gray-500">{quarter}</div>
+                                </div>
+                              </th>
+                            );
+                          })
+                        ) : (
+                          // Summary View - show trends
                           <>
-                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">6Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
-                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">5Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
-                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">4Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
-                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">3Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
-                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">2Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
-                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">1Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                            <th className="text-right py-2 px-3 font-semibold text-gray-700 text-xs min-w-[140px]">Latest Value</th>
+                            <th className="text-center py-2 px-3 font-semibold text-gray-700 text-xs min-w-[120px]">Overall Trend</th>
+                            <th className="text-center py-2 px-3 font-semibold text-gray-700 text-xs min-w-[120px]">
+                              <div className="flex items-center justify-center gap-1">
+                                <span>{shortTermPeriods}Q Trend</span>
+                                <span className="text-xs text-gray-400 font-normal">(t+num)</span>
+                              </div>
+                            </th>
+                            {/* Show quarterly trend percentages only in detailed and income views */}
+                            {(viewType === 'detailed' || viewType === 'income') && (
+                              <>
+                                <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs min-w-[80px]">6Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                                <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs min-w-[80px]">5Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                                <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs min-w-[80px]">4Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                                <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs min-w-[80px]">3Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                                <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs min-w-[80px]">2Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                                <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs min-w-[80px]">1Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                              </>
+                            )}
                           </>
                         )}
                       </tr>
@@ -969,70 +1141,106 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                         const trends = calculateMetricTrend(metric, shortTermPeriods);
                         const trendPercentages = (viewType === 'detailed' || viewType === 'income') ? calculateTrendPercentages(metric) : null;
                         return (
-                          <tr key={metric.name} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                            <td className="py-2 px-3">
-                              <div className="font-medium text-gray-900">
-                                {getShortMetricName(metric.name)}
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {metric.description}
+                          <tr key={metric.name} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} transition-all duration-300`}>
+                            <td className="py-2 px-3 min-w-[350px] w-[350px]">
+                              {/* Show metric name only */}
+                              <div className="font-medium text-gray-900 text-xs">
+                                {metric.name}
                               </div>
                             </td>
-                            <td className="py-2 px-3 text-right">
-                              <span className="text-xs font-mono text-gray-800">
-                                {formatValue(trends.latestValue, metric.unit)}
-                              </span>
-                            </td>
-                            <td className="py-2 px-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                {trends.overallTrend === 'up' && (
-                                  <span className="text-green-600 text-xs font-medium">Up</span>
-                                )}
-                                {trends.overallTrend === 'down' && (
-                                  <span className="text-red-600 text-xs font-medium">Down</span>
-                                )}
-                                {trends.overallTrend === 'neutral' && (
-                                  <span className="text-gray-500 text-xs">Neutral</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-2 px-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                {trends.shortTermTrend === 'up' && (
-                                  <span className="text-green-600 text-xs font-medium">Up</span>
-                                )}
-                                {trends.shortTermTrend === 'down' && (
-                                  <span className="text-red-600 text-xs font-medium">Down</span>
-                                )}
-                                {trends.shortTermTrend === 'neutral' && (
-                                  <span className="text-gray-500 text-xs">Flat</span>
-                                )}
-                              </div>
-                            </td>
-                            {/* Show quarterly trend percentages only in detailed and income views */}
-                            {(viewType === 'detailed' || viewType === 'income') && trendPercentages && (
+                            
+                            {/* Description column - shown only when toggled on */}
+                            {showDescriptions && (
+                              <td className="py-2 px-3 min-w-[250px]">
+                                <div className="text-xs text-gray-500">
+                                  {metric.description}
+                                </div>
+                              </td>
+                            )}
+                            
+                            {/* Dynamic content based on view mode for income statement */}
+                            {viewType === 'income' && isRawDataView ? (
+                              // Raw Data View - show quarterly data
+                              periods.map((period: string) => {
+                                const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);
+                                return (
+                                  <td key={period} className="py-2 px-3 text-right">
+                                    <div className="transform transition-all duration-300 ease-in-out">
+                                      {dataPoint ? (
+                                        <span className="text-xs font-mono text-gray-800">
+                                          {formatValue(dataPoint.value, metric.unit)}
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-500 text-xs">—</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              })
+                            ) : (
+                              // Summary View - show trends
                               <>
-                                {[0, 1, 2, 3, 4, 5].map(quarterIndex => {
-                                  const trendData = trendPercentages.quarterlyTrends[quarterIndex];
-                                  const percent = trendData?.trendPercent || 0;
-                                  const isPositive = percent > 0;
-                                  const isNegative = percent < 0;
-                                  
-                                  return (
-                                    <td key={quarterIndex} className="py-2 px-1 text-center">
-                                      <span 
-                                        className={`text-xs font-mono ${
-                                          isPositive ? 'text-green-600' : 
-                                          isNegative ? 'text-red-600' : 
-                                          'text-gray-500'
-                                        }`}
-                                      >
-                                        {Math.abs(percent) < 0.1 ? '0%' : 
-                                         `${isPositive ? '+' : ''}${percent.toFixed(1)}%`}
-                                      </span>
-                                    </td>
-                                  );
-                                })}
+                                <td className="py-2 px-3 text-right">
+                                  <div className="transform transition-all duration-300 ease-in-out">
+                                    <span className="text-xs font-mono text-gray-800">
+                                      {formatValue(trends.latestValue, metric.unit)}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3 text-center">
+                                  <div className="flex items-center justify-center gap-1 transform transition-all duration-300 ease-in-out">
+                                    {trends.overallTrend === 'up' && (
+                                      <span className="text-green-600 text-xs font-medium">Up</span>
+                                    )}
+                                    {trends.overallTrend === 'down' && (
+                                      <span className="text-red-600 text-xs font-medium">Down</span>
+                                    )}
+                                    {trends.overallTrend === 'neutral' && (
+                                      <span className="text-gray-500 text-xs">Neutral</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3 text-center">
+                                  <div className="flex items-center justify-center gap-1 transform transition-all duration-300 ease-in-out">
+                                    {trends.shortTermTrend === 'up' && (
+                                      <span className="text-green-600 text-xs font-medium">Up</span>
+                                    )}
+                                    {trends.shortTermTrend === 'down' && (
+                                      <span className="text-red-600 text-xs font-medium">Down</span>
+                                    )}
+                                    {trends.shortTermTrend === 'neutral' && (
+                                      <span className="text-gray-500 text-xs">Flat</span>
+                                    )}
+                                  </div>
+                                </td>
+                                {/* Show quarterly trend percentages only in detailed and income views */}
+                                {(viewType === 'detailed' || viewType === 'income') && trendPercentages && (
+                                  <>
+                                    {[0, 1, 2, 3, 4, 5].map(quarterIndex => {
+                                      const trendData = trendPercentages.quarterlyTrends[quarterIndex];
+                                      const percent = trendData?.trendPercent || 0;
+                                      const isPositive = percent > 0;
+                                      const isNegative = percent < 0;
+                                      
+                                      return (
+                                        <td key={quarterIndex} className="py-2 px-1 text-center">
+                                          <div className="transform transition-all duration-300 ease-in-out">
+                                            <span 
+                                              className={`text-xs font-mono ${
+                                                isPositive ? 'text-green-600' : 
+                                                isNegative ? 'text-red-600' : 
+                                                'text-gray-500'
+                                              }`}
+                                            >
+                                              {Math.abs(percent) < 0.1 ? '0%' : 
+                                               `${isPositive ? '+' : ''}${percent.toFixed(1)}%`}
+                                            </span>
+                                          </div>
+                                        </td>
+                                      );
+                                    })}
+                                  </>
+                                )}
                               </>
                             )}
                           </tr>
@@ -1043,8 +1251,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                 </div>
               </div>
 
-              {/* Financial Data Table - Hide in detailed view */}
-              {viewType !== 'detailed' && (
+              {/* Financial Data Table - Hide in detailed view and income view */}
+              {viewType !== 'detailed' && viewType !== 'income' && (
                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                   <div 
                     className="flex justify-between items-center cursor-pointer"
@@ -1065,30 +1273,47 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                 
                 {isMetricsExpanded && (
                   <div className="mt-4">
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto" ref={scrollContainerRef}>
                       <table className="w-full border-collapse">
                         <thead>
                           <tr className="border-b-2 border-gray-300">
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[180px]">
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[350px]">
                               Metric
                             </th>
-                            {periods.map((period: string) => (
-                              <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
-                                {period}
-                              </th>
-                            ))}
+                            {showDescriptions && (
+                              <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[250px]">Description</th>
+                            )}
+                            {periods.map((period: string) => {
+                              const [year, quarter] = period.split('-');
+                              return (
+                                <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
+                                  <div className="text-center">
+                                    <div className="text-xs">{year}</div>
+                                    <div className="text-xs font-normal text-gray-500">{quarter}</div>
+                                  </div>
+                                </th>
+                              );
+                            })}
                           </tr>
                         </thead>
                         <tbody>
                           {metrics.map((metric: ProcessedMetric, index: number) => (
                             <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                              <td className="py-3 px-4 w-[200px]">
+                              <td className="py-3 px-4 w-[350px]">
                                 <div>
-                                  <div className="font-medium text-gray-900 cursor-help" title={metric.description}>
+                                  <div className="font-medium text-gray-900 text-xs">
                                     {metric.name}
                                   </div>
                                 </div>
                               </td>
+                              {/* Description column - shown only when toggled on */}
+                              {showDescriptions && (
+                                <td className="py-3 px-4 min-w-[250px]">
+                                  <div className="text-xs text-gray-500">
+                                    {metric.description}
+                                  </div>
+                                </td>
+                              )}
                               {periods.map((period: string) => {
                                 const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);
                                 return (
