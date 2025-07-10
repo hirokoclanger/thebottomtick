@@ -1,3 +1,19 @@
+/**
+ * TickerDisplay Component - Financial Dashboard
+ * 
+ * Current Features:
+ * - Multiple view types: default, detailed (.d), quarterly (.q), charts (.c)
+ * - Parabolic trend analysis with short-term trend indicators
+ * - Trend percentage calculations showing curve acceleration/deceleration
+ * 
+ * Future Vision:
+ * - Heat maps for financial sections (OpEx, Liabilities, Debt, etc.)
+ * - Money flow visualization (Cash → Inventory → Projects)
+ * - Corporate financial health indicators
+ * - Flow analysis to detect artificial revenue boosting (e.g., inventory decline rates)
+ * - Visual representation of money movement within corporation
+ */
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -419,6 +435,87 @@ function calculateMetricTrend(metric: ProcessedMetric, shortTermPeriods: number 
   };
 }
 
+// Helper function to calculate trend percentages for recent quarters
+function calculateTrendPercentages(metric: ProcessedMetric): { quarterlyTrends: Array<{ quarter: string, trendPercent: number }> } {
+  if (metric.dataPoints.length < 2) {
+    return { quarterlyTrends: [] };
+  }
+
+  const sortedData = [...metric.dataPoints].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const n = sortedData.length;
+  if (n < 6) {
+    return { quarterlyTrends: [] };
+  }
+
+  const xValues = sortedData.map((_, i) => i);
+  const yValues = sortedData.map(d => d.value);
+  
+  // Use the SAME parabolic regression calculation as the main trend calculation
+  const sumX = xValues.reduce((a, b) => a + b, 0);
+  const sumY = yValues.reduce((a, b) => a + b, 0);
+  const sumX2 = xValues.reduce((sum, x) => sum + x * x, 0);
+  const sumX3 = xValues.reduce((sum, x) => sum + x * x * x, 0);
+  const sumX4 = xValues.reduce((sum, x) => sum + x * x * x * x, 0);
+  const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
+  const sumX2Y = xValues.reduce((sum, x, i) => sum + x * x * yValues[i], 0);
+  
+  const A = [
+    [n, sumX, sumX2],
+    [sumX, sumX2, sumX3],
+    [sumX2, sumX3, sumX4]
+  ];
+  const B = [sumY, sumXY, sumX2Y];
+  
+  const det = A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+              A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+              A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+  
+  if (Math.abs(det) < 0.001) {
+    return { quarterlyTrends: [] };
+  }
+
+  const quadA = ((B[0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+                  A[0][1] * (B[1] * A[2][2] - A[1][2] * B[2]) +
+                  A[0][2] * (B[1] * A[2][1] - A[1][1] * B[2])) / det);
+  const quadB = ((A[0][0] * (B[1] * A[2][2] - A[1][2] * B[2]) -
+                  B[0] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+                  A[0][2] * (A[1][0] * B[2] - B[1] * A[2][0])) / det);
+  const quadC = ((A[0][0] * (A[1][1] * B[2] - B[1] * A[2][1]) -
+                  A[0][1] * (A[1][0] * B[2] - B[1] * A[2][0]) +
+                  B[0] * (A[1][0] * A[2][1] - A[1][1] * A[2][0])) / det);
+
+  // Calculate trend curve values for last 7 quarters (need 7 to get 6 percentage changes)
+  const quarterlyTrends: Array<{ quarter: string, trendPercent: number }> = [];
+  const trendValues: number[] = [];
+  
+  // Calculate trend values for last 7 quarters
+  for (let i = 0; i < 7; i++) {
+    const xPos = n - 7 + i; // Position in the overall dataset
+    const trendValue = quadA + quadB * xPos + quadC * xPos * xPos;
+    trendValues.push(trendValue);
+  }
+  
+  // Calculate percentage changes between consecutive trend points
+  for (let i = 1; i < 7; i++) {
+    const currentTrendValue = trendValues[i];
+    const previousTrendValue = trendValues[i - 1];
+    
+    // Calculate percentage change from previous to current trend point
+    const trendPercent = previousTrendValue !== 0 ? 
+      ((currentTrendValue - previousTrendValue) / Math.abs(previousTrendValue)) * 100 : 0;
+    
+    quarterlyTrends.push({
+      quarter: `${i}Q`, // 1Q, 2Q, 3Q, 4Q, 5Q, 6Q (where 1Q is oldest change, 6Q is newest)
+      trendPercent: trendPercent
+    });
+  }
+
+  return { quarterlyTrends: quarterlyTrends }; // Order is already correct: 1Q to 6Q (oldest to newest)
+}
+
 // Helper function to format metric names with proper spacing
 function formatMetricName(name: string): string {
   return name
@@ -797,7 +894,14 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
               {/* Metrics Summary Table */}
               <div className="bg-white rounded-lg p-4 border border-gray-200 mb-6">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="text-lg font-bold text-gray-800">Metrics Summary</h2>
+                  <h2 className="text-lg font-bold text-gray-800">
+                    Metrics Summary
+                    {isDetailedView && (
+                      <span className="ml-2 text-sm font-normal text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                        {metrics.length} Metrics
+                      </span>
+                    )}
+                  </h2>
                   <div className="flex items-center gap-2">
                     <label className="text-sm text-gray-600">Short-term periods:</label>
                     <select
@@ -805,6 +909,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                       onChange={(e) => setShortTermPeriods(Number(e.target.value))}
                       className="px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
+                      <option value={1}>1Q</option>
                       <option value={2}>2Q</option>
                       <option value={3}>3Q</option>
                       <option value={4}>4Q</option>
@@ -826,45 +931,90 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                             <span className="text-xs text-gray-400 font-normal">(t+num)</span>
                           </div>
                         </th>
+                        {/* Show quarterly trend percentages only in detailed view */}
+                        {viewType === 'detailed' && (
+                          <>
+                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">6Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">5Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">4Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">3Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">2Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                            <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">1Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
                       {metrics.map((metric: ProcessedMetric, index: number) => {
                         const trends = calculateMetricTrend(metric, shortTermPeriods);
+                        const trendPercentages = viewType === 'detailed' ? calculateTrendPercentages(metric) : null;
                         return (
                           <tr key={metric.name} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
-                            <td className="py-2 px-3 font-medium text-gray-900">
-                              {getShortMetricName(metric.name)}
+                            <td className="py-2 px-3">
+                              <div className="font-medium text-gray-900">
+                                {getShortMetricName(metric.name)}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {metric.description}
+                              </div>
                             </td>
-                            <td className="py-2 px-3 text-right font-mono text-gray-800">
-                              {formatValue(trends.latestValue, metric.unit)}
+                            <td className="py-2 px-3 text-right">
+                              <span className="text-xs font-mono text-gray-800">
+                                {formatValue(trends.latestValue, metric.unit)}
+                              </span>
                             </td>
                             <td className="py-2 px-3 text-center">
                               <div className="flex items-center justify-center gap-1">
                                 {trends.overallTrend === 'up' && (
-                                  <span className="text-green-600 font-bold">↗ Up</span>
+                                  <span className="text-green-600 text-xs font-medium">Up</span>
                                 )}
                                 {trends.overallTrend === 'down' && (
-                                  <span className="text-red-600 font-bold">↘ Down</span>
+                                  <span className="text-red-600 text-xs font-medium">Down</span>
                                 )}
                                 {trends.overallTrend === 'neutral' && (
-                                  <span className="text-gray-500">→ Neutral</span>
+                                  <span className="text-gray-500 text-xs">Neutral</span>
                                 )}
                               </div>
                             </td>
                             <td className="py-2 px-3 text-center">
                               <div className="flex items-center justify-center gap-1">
                                 {trends.shortTermTrend === 'up' && (
-                                  <span className="text-green-600 font-bold">↗ Up</span>
+                                  <span className="text-green-600 text-xs font-medium">Up</span>
                                 )}
                                 {trends.shortTermTrend === 'down' && (
-                                  <span className="text-red-600 font-bold">↘ Down</span>
+                                  <span className="text-red-600 text-xs font-medium">Down</span>
                                 )}
                                 {trends.shortTermTrend === 'neutral' && (
-                                  <span className="text-gray-500">→ Flat</span>
+                                  <span className="text-gray-500 text-xs">Flat</span>
                                 )}
                               </div>
                             </td>
+                            {/* Show quarterly trend percentages only in detailed view */}
+                            {viewType === 'detailed' && trendPercentages && (
+                              <>
+                                {[0, 1, 2, 3, 4, 5].map(quarterIndex => {
+                                  const trendData = trendPercentages.quarterlyTrends[quarterIndex];
+                                  const percent = trendData?.trendPercent || 0;
+                                  const isPositive = percent > 0;
+                                  const isNegative = percent < 0;
+                                  
+                                  return (
+                                    <td key={quarterIndex} className="py-2 px-1 text-center">
+                                      <span 
+                                        className={`text-xs font-mono ${
+                                          isPositive ? 'text-green-600' : 
+                                          isNegative ? 'text-red-600' : 
+                                          'text-gray-500'
+                                        }`}
+                                      >
+                                        {Math.abs(percent) < 0.1 ? '0%' : 
+                                         `${isPositive ? '+' : ''}${percent.toFixed(1)}%`}
+                                      </span>
+                                    </td>
+                                  );
+                                })}
+                              </>
+                            )}
                           </tr>
                         );
                       })}
@@ -873,7 +1023,14 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                 </div>
                 <div className="mt-2 text-xs text-gray-500">
                   Overall Trend: Based on parabolic regression across all available data. 
-                  {shortTermPeriods}Q Trend: Short-term trend over last {shortTermPeriods} quarters (&gt;5% change threshold).
+                  {shortTermPeriods}Q Trend: Short-term trend over last {shortTermPeriods} quarters using actual reported values (&gt;5% change threshold).
+                  {viewType === 'detailed' && (
+                    <span className="block mt-1">
+                      📊 <strong>Trend %:</strong> Shows the percentage change between consecutive points on the parabolic trend curve (fitted to all historical data).
+                      Note: Short-term trend may show ↗ Up while Trend % shows negative values - this indicates the underlying mathematical trend is decelerating even if recent quarters show growth.
+                      Green = accelerating trend, Red = decelerating trend.
+                    </span>
+                  )}
                   <br />
                   <span className="text-gray-400">💡 Quick shortcut: Press 't' + number + Enter to change trend period (e.g., t4 + Enter for 4 quarters)</span>
                 </div>
