@@ -41,6 +41,7 @@ export default function HomePage() {
           onClear={handleClearTicker}
           selectedTicker={selectedTicker}
           currentView={currentView}
+          companyData={companyData}
         />
       </div>
       

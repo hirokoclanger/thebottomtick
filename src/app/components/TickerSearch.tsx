@@ -6,9 +6,10 @@ interface TickerSearchProps {
   onClear: () => void;
   selectedTicker: string | null;
   currentView?: string;
+  companyData?: any;
 }
 
-export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, currentView }: TickerSearchProps) {
+export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, currentView, companyData }: TickerSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredTickers, setFilteredTickers] = useState<string[]>([]);
@@ -144,6 +145,84 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
     }
   };
 
+  // Helper function to format values compactly
+  function formatCompact(value: number, unit: string): string {
+    if (unit === 'USD') {
+      if (Math.abs(value) >= 1e9) {
+        return `$${(value / 1e9).toFixed(1)}B`;
+      } else if (Math.abs(value) >= 1e6) {
+        return `$${(value / 1e6).toFixed(1)}M`;
+      } else if (Math.abs(value) >= 1e3) {
+        return `$${(value / 1e3).toFixed(1)}K`;
+      } else {
+        return `$${value.toLocaleString()}`;
+      }
+    } else if (unit === 'USD/shares') {
+      return `$${value.toFixed(2)}`;
+    } else if (unit === 'shares') {
+      if (Math.abs(value) >= 1e9) {
+        return `${(value / 1e9).toFixed(1)}B`;
+      } else if (Math.abs(value) >= 1e6) {
+        return `${(value / 1e6).toFixed(1)}M`;
+      }
+      return value.toLocaleString();
+    } else {
+      return value.toLocaleString();
+    }
+  }
+
+  // Helper function to extract key metrics from company data
+  function extractKeyMetrics(data: any) {
+    if (!data) return null;
+
+    const metrics: any = {};
+
+    // CIK
+    metrics.cik = data.cik;
+
+    // Public Float
+    if (data.facts?.dei?.EntityPublicFloat?.units?.USD?.length > 0) {
+      metrics.publicFloat = formatCompact(data.facts.dei.EntityPublicFloat.units.USD[0].val, 'USD');
+    }
+
+    // Shares Outstanding
+    if (data.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares?.length > 0) {
+      metrics.sharesOutstanding = formatCompact(data.facts.dei.EntityCommonStockSharesOutstanding.units.shares[0].val, 'shares');
+    }
+
+    // Latest EPS, Revenue, and Weighted Average Shares from metrics
+    if (data.metrics && data.metrics.length > 0) {
+      // Find latest EPS
+      const epsMetric = data.metrics.find((m: any) => 
+        m.name.includes('Earnings Per Share Basic') || m.name.includes('EPS Basic')
+      );
+      if (epsMetric && epsMetric.dataPoints.length > 0) {
+        const latestEps = epsMetric.dataPoints[0]; // Assuming sorted by latest first
+        metrics.latestEps = formatCompact(latestEps.value, epsMetric.unit);
+      }
+
+      // Find latest Revenue
+      const revenueMetric = data.metrics.find((m: any) => 
+        m.name.includes('Revenues') || m.name.includes('Revenue')
+      );
+      if (revenueMetric && revenueMetric.dataPoints.length > 0) {
+        const latestRevenue = revenueMetric.dataPoints[0];
+        metrics.latestRevenue = formatCompact(latestRevenue.value, revenueMetric.unit);
+      }
+
+      // Find Weighted Average Shares Outstanding Basic
+      const sharesBasicMetric = data.metrics.find((m: any) => 
+        m.name.includes('Weighted Average Number Of Shares Outstanding Basic')
+      );
+      if (sharesBasicMetric && sharesBasicMetric.dataPoints.length > 0) {
+        const latestShares = sharesBasicMetric.dataPoints[0];
+        metrics.weightedAvgShares = formatCompact(latestShares.value, 'shares');
+      }
+    }
+
+    return metrics;
+  }
+
   if (!isOpen && !selectedTicker) {
     return (
       <div className="w-full bg-white min-h-screen flex items-center justify-center">
@@ -180,19 +259,73 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
       }
     };
 
+    const keyMetrics = extractKeyMetrics(companyData);
+
     return (
       <div className="w-full bg-white border-b border-gray-200">
         <div className="w-[90%] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-900">
-                {selectedTicker}
-              </h1>
-              <div className="text-sm text-gray-600">
-                {availableTickers[selectedTicker]?.title || 'Loading...'}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {selectedTicker}
+                </h1>
+                <div className="text-sm text-gray-600">
+                  {availableTickers[selectedTicker]?.title || 'Loading...'}
+                </div>
               </div>
+              
+              {/* Compact Key Metrics */}
+              {keyMetrics && (
+                <div className="flex items-center gap-4 text-xs text-gray-700">
+                  {keyMetrics.cik && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500">CIK:</span>
+                      <span className="font-mono">{keyMetrics.cik}</span>
+                    </div>
+                  )}
+                  {keyMetrics.publicFloat && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500">Float:</span>
+                      <span className="font-mono">{keyMetrics.publicFloat}</span>
+                    </div>
+                  )}
+                  {keyMetrics.sharesOutstanding && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500">Shares:</span>
+                      <span className="font-mono">{keyMetrics.sharesOutstanding}</span>
+                    </div>
+                  )}
+                  {keyMetrics.latestEps && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500">EPS:</span>
+                      <span className="font-mono">{keyMetrics.latestEps}</span>
+                    </div>
+                  )}
+                  {keyMetrics.latestRevenue && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500">Rev:</span>
+                      <span className="font-mono">{keyMetrics.latestRevenue}</span>
+                    </div>
+                  )}
+                  {keyMetrics.weightedAvgShares && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500">WtgAvg:</span>
+                      <span className="font-mono">{keyMetrics.weightedAvgShares}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-4">
+              {/* Data Available Status */}
+              <div className={`px-2 py-1 rounded text-xs font-medium ${
+                companyData?.financialData === 'available' 
+                  ? 'bg-green-100 text-green-800 border border-green-300' 
+                  : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+              }`}>
+                {companyData?.financialData === 'available' ? '📊 Data Available' : '⚠️ Data Not Loaded'}
+              </div>
               <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm font-medium">
                 {getViewDisplayName(currentView)}
               </div>
