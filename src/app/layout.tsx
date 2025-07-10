@@ -33,7 +33,6 @@ export default function RootLayout({
           </div>
           <nav className="flex gap-6 text-sm font-medium text-white">
             <a href="/" className="hover:text-[#f7c325] transition">Home</a>
-            <a href="/admin" className="hover:text-[#f7c325] transition">Admin</a>
           </nav>
         </header>
         <main className="w-full">
