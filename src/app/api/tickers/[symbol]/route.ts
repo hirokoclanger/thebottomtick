@@ -22,8 +22,8 @@ export async function GET(
       );
     }
 
-    // Try to load company facts if available
-    const factsPath = path.join(process.cwd(), 'data', 'companyfacts', `CIK${company.cik}.json`);
+    // Try to load company facts from persistent storage
+    const factsPath = path.join('/var/lib/data', 'companyfacts', `CIK${company.cik}.json`);
     let financialData = null;
     
     try {
