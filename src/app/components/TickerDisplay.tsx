@@ -920,7 +920,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                         {periods.map((period: string) => {
                           const [year, quarter] = period.split('-');
                           return (
-                            <th key={period} className="text-right py-2 px-3 font-semibold text-gray-700 text-xs min-w-[140px]">
+                            <th key={period} className="text-center py-2 px-3 font-semibold text-gray-700 text-xs min-w-[140px]">
                               <div className="text-center">
                                 <div className="text-xs">{year}</div>
                                 <div className="text-xs font-normal text-gray-500">{quarter}</div>
@@ -1102,7 +1102,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                           periods.map((period: string) => {
                             const [year, quarter] = period.split('-');
                             return (
-                              <th key={period} className="text-right py-2 px-3 font-semibold text-gray-700 text-xs min-w-[140px]">
+                              <th key={period} className="text-center py-2 px-3 font-semibold text-gray-700 text-xs min-w-[140px]">
                                 <div className="text-center">
                                   <div className="text-xs">{year}</div>
                                   <div className="text-xs font-normal text-gray-500">{quarter}</div>
@@ -1286,7 +1286,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                             {periods.map((period: string) => {
                               const [year, quarter] = period.split('-');
                               return (
-                                <th key={period} className="text-right py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
+                                <th key={period} className="text-center py-3 px-4 font-semibold text-gray-700 min-w-[140px]">
                                   <div className="text-center">
                                     <div className="text-xs">{year}</div>
                                     <div className="text-xs font-normal text-gray-500">{quarter}</div>
