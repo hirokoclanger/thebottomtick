@@ -16,7 +16,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface TickerDisplayProps {
   ticker: string;
@@ -547,6 +547,48 @@ function getShortMetricName(name: string): string {
   return nameMap[name] || name;
 }
 
+// Function to group metrics by financial statement category
+function groupMetricsByCategory(metrics: ProcessedMetric[]) {
+  const groups: Record<string, ProcessedMetric[]> = {
+    'Revenue & Income': [],
+    'Expenses': [],
+    'Assets': [],
+    'Liabilities': [],
+    'Equity': [],
+    'Cash Flow': [],
+    'Other': []
+  };
+
+  metrics.forEach(metric => {
+    const name = metric.name.toLowerCase();
+    
+    if (name.includes('revenue') || name.includes('income') || name.includes('earnings') || name.includes('profit')) {
+      groups['Revenue & Income'].push(metric);
+    } else if (name.includes('expense') || name.includes('cost') || name.includes('operating expense')) {
+      groups['Expenses'].push(metric);
+    } else if (name.includes('asset') || name.includes('cash') || name.includes('inventory') || name.includes('goodwill') || name.includes('property')) {
+      groups['Assets'].push(metric);
+    } else if (name.includes('liabilit') || name.includes('debt') || name.includes('payable')) {
+      groups['Liabilities'].push(metric);
+    } else if (name.includes('equity') || name.includes('stockholder') || name.includes('retained earnings')) {
+      groups['Equity'].push(metric);
+    } else if (name.includes('cash flow') || name.includes('operating activities') || name.includes('investing activities') || name.includes('financing activities')) {
+      groups['Cash Flow'].push(metric);
+    } else {
+      groups['Other'].push(metric);
+    }
+  });
+
+  // Remove empty groups
+  Object.keys(groups).forEach(key => {
+    if (groups[key].length === 0) {
+      delete groups[key];
+    }
+  });
+
+  return groups;
+}
+
 /**
  * TickerDisplay Component
  * 
@@ -633,15 +675,15 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
         return;
       }
 
-      // Handle 't' key for view toggle (financial statement views)
-      if (key === 't' && !isTypingQ && (viewType === 'income' || viewType === 'balance' || viewType === 'cashflow')) {
+      // Handle 't' key for view toggle (financial statement views and detailed view)
+      if (key === 't' && !isTypingQ && (viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed')) {
         setIsRawDataView(prev => !prev);
         event.preventDefault();
         return;
       }
 
       // Handle 't' key sequences for other views (legacy trend period change)
-      if (key === 't' && !isTypingT && !isTypingQ && viewType !== 'income' && viewType !== 'balance' && viewType !== 'cashflow') {
+      if (key === 't' && !isTypingT && !isTypingQ && viewType !== 'income' && viewType !== 'balance' && viewType !== 'cashflow' && viewType !== 'detailed') {
         isTypingT = true;
         inputBuffer = '';
         event.preventDefault();
@@ -658,8 +700,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
 
       if (isTypingT) {
         if (key === 'enter') {
-          // For financial statement views: toggle between summary and raw data view
-          if ((viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && inputBuffer === '') {
+          // For financial statement views and detailed view: toggle between summary and raw data view
+          if ((viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed') && inputBuffer === '') {
             setIsRawDataView(prev => !prev);
             isTypingT = false;
             inputBuffer = '';
@@ -857,10 +899,10 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
         </div>
 
         {/* Financial Charts and Data */}
-        {(data.facts || data.metrics) && (() => {
-          const isDetailedView = viewType === 'detailed' || viewType === 'quarterly' || viewType === 'charts';
-          const isFinancialStatementView = viewType === 'income' || viewType === 'balance' || viewType === 'cashflow';
-          const isSpecialView = isDetailedView || isFinancialStatementView;
+        {(data.facts || data.metrics || data.forwardEstimates) && (() => {
+          const isDetailedView = viewType === 'quarterly' || viewType === 'charts';
+          const isFinancialStatementView = viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed';
+          const isSpecialView = isDetailedView || isFinancialStatementView || viewType === 'forward';
           
           // Handle both old format (data.facts) and new format (data.metrics)
           let metrics, periods;
@@ -892,6 +934,101 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
           
           console.log(`Final result - View Type: ${viewType}, Is Detailed: ${isDetailedView}, Metrics Count: ${metrics.length}`);
           
+          // Forward estimates view: show forward estimates tables
+          if (viewType === 'forward') {
+            const forwardData = data.forwardEstimates || {};
+            const annualEstimates = forwardData.annualEstimates || [];
+            const quarterlyEstimates = forwardData.quarterlyEstimates || [];
+            
+            return (
+              <div className="space-y-6">
+                {/* Annual Estimates Table */}
+                <div className="bg-white rounded-lg p-6 border border-gray-200">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Annual Estimates</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-gray-300">
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Year</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">EPS ($)</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">High</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Low</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Price Target</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {annualEstimates.map((estimate: any, index: number) => (
+                          <tr key={estimate.year} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                            <td className="py-3 px-4 font-medium text-gray-900">{estimate.year}</td>
+                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.eps}</td>
+                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.high}</td>
+                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.low}</td>
+                            <td className="py-3 px-4 text-center font-mono text-sm text-blue-600">{estimate.priceTarget}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Quarterly Estimates Table */}
+                <div className="bg-white rounded-lg p-6 border border-gray-200">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Quarterly Estimates</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-gray-300">
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Quarter</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">EPS($)</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">%Chg</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">Sales($B)</th>
+                          <th className="text-center py-3 px-4 font-semibold text-gray-700 text-sm">% Chg</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quarterlyEstimates.map((estimate: any, index: number) => (
+                          <tr key={estimate.quarter} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                            <td className="py-3 px-4 font-medium text-gray-900">{estimate.quarter}</td>
+                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.eps}</td>
+                            <td className="py-3 px-4 text-center font-mono text-sm">
+                              <span className={`${
+                                estimate.change.startsWith('+') ? 'text-green-600' : 
+                                estimate.change.startsWith('-') ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                {estimate.change}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono text-sm">{estimate.sales}</td>
+                            <td className="py-3 px-4 text-center font-mono text-sm">
+                              <span className={`${
+                                estimate.salesChange.startsWith('+') ? 'text-blue-600' : 
+                                estimate.salesChange.startsWith('-') ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                {estimate.salesChange}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Info Box */}
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">Forward Estimates</h4>
+                  <p className="text-xs text-blue-700">
+                    📊 <strong>Annual Estimates:</strong> Consensus forward-looking earnings per share (EPS) estimates and price targets from analysts.
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    📈 <strong>Quarterly Estimates:</strong> Historical and projected quarterly EPS and sales with percentage changes.
+                    Green indicates positive growth, red indicates decline.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          
           if (metrics.length === 0 || periods.length === 0) {
             return (
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
@@ -906,12 +1043,26 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
             );
           }
 
-          // Quarterly view: show only the financial data table
+          // Quarterly view: show grouped financial data table
           if (viewType === 'quarterly') {
+            const groupedMetrics = groupMetricsByCategory(metrics);
+            
             return (
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-bold text-gray-800">Financial Data (Quarterly)</h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowDescriptions(!showDescriptions)}
+                      className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                        showDescriptions 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      {showDescriptions ? 'Hide' : 'Show'} Descriptions
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="overflow-x-auto" ref={scrollContainerRef}>
@@ -938,36 +1089,50 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                       </tr>
                     </thead>
                     <tbody>
-                      {metrics.map((metric: ProcessedMetric, index: number) => (
-                        <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="py-2 px-3 w-[350px]">
-                            <div className="font-medium text-gray-900 text-xs">
-                              {metric.name}
-                            </div>
-                          </td>
-                          {/* Description column - shown only when toggled on */}
-                          {showDescriptions && (
-                            <td className="py-2 px-3 min-w-[250px]">
-                              <div className="text-xs text-gray-500">
-                                {metric.description}
-                              </div>
+                      {Object.entries(groupedMetrics).map(([categoryName, categoryMetrics]) => (
+                        <React.Fragment key={categoryName}>
+                          {/* Category Header */}
+                          <tr className="bg-gray-100 border-b border-gray-300">
+                            <td 
+                              colSpan={showDescriptions ? periods.length + 2 : periods.length + 1} 
+                              className="py-3 px-3 font-bold text-gray-800 text-sm"
+                            >
+                              {categoryName}
                             </td>
-                          )}
-                          {periods.map((period: string) => {
-                            const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);
-                            return (
-                              <td key={period} className="py-2 px-3 text-right">
-                                {dataPoint ? (
-                                  <span className="font-mono text-xs text-gray-800">
-                                    {formatValue(dataPoint.value, metric.unit)}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500 text-xs">—</span>
-                                )}
+                          </tr>
+                          {/* Category Metrics */}
+                          {categoryMetrics.map((metric: ProcessedMetric, index: number) => (
+                            <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                              <td className="py-2 px-3 w-[350px]">
+                                <div className="font-medium text-gray-900 text-xs pl-4">
+                                  {metric.name}
+                                </div>
                               </td>
-                            );
-                          })}
-                        </tr>
+                              {/* Description column - shown only when toggled on */}
+                              {showDescriptions && (
+                                <td className="py-2 px-3 min-w-[250px]">
+                                  <div className="text-xs text-gray-500">
+                                    {metric.description}
+                                  </div>
+                                </td>
+                              )}
+                              {periods.map((period: string) => {
+                                const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);
+                                return (
+                                  <td key={period} className="py-2 px-3 text-right">
+                                    {dataPoint ? (
+                                      <span className="font-mono text-xs text-gray-800">
+                                        {formatValue(dataPoint.value, metric.unit)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-500 text-xs">—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -975,8 +1140,11 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                 
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-xs text-gray-500">
-                    Quarterly View: Shows all available quarterly financial metrics in table format. Hover over metric names for descriptions.
-                    Values are shown in millions (M) or billions (B) where applicable.
+                    📊 <strong>Quarterly View:</strong> Shows all {metrics.length} available quarterly financial metrics organized by financial statement section. 
+                    Metrics are grouped into categories like Revenue & Income, Assets, Liabilities, etc.
+                  </p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    💡 Quick shortcuts: Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally
                   </p>
                 </div>
               </div>
@@ -1022,8 +1190,9 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                   <h2 className="text-lg font-bold text-gray-800">
                     {viewType === 'income' ? 'Income Statement' : 
                      viewType === 'balance' ? 'Balance Sheet' :
-                     viewType === 'cashflow' ? 'Cash Flow Statement' : 'Metrics Summary'}
-                    {isDetailedView && (
+                     viewType === 'cashflow' ? 'Cash Flow Statement' : 
+                     viewType === 'detailed' ? 'All Financial Metrics' : 'Metrics Summary'}
+                    {(isDetailedView || viewType === 'detailed') && (
                       <span className="ml-2 text-sm font-normal text-purple-600 bg-purple-50 px-2 py-1 rounded">
                         {metrics.length} Metrics
                       </span>
@@ -1047,7 +1216,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     </div>
                     
                     {/* Toggle Switch for Income Statement View */}
-                    {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && (
+                    {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed') && (
                       <div className="flex items-center gap-2">
                         <label className="text-sm text-gray-600">View:</label>
                         <div className="flex items-center gap-2">
@@ -1090,7 +1259,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                   )}
                   <div className="text-gray-400">
                     💡 Quick shortcuts: 
-                    {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') ? (
+                    {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed') ? (
                       <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 't' to toggle view • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
                     ) : (
                       <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
@@ -1107,7 +1276,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                           <th className="text-left py-2 px-3 font-semibold text-gray-700 text-xs min-w-[250px]">Description</th>
                         )}
                         {/* Dynamic headers based on view mode for financial statements */}
-                        {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && isRawDataView ? (
+                        {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed') && isRawDataView ? (
                           // Raw Data View - show quarterly periods with 2-row headers
                           periods.map((period: string) => {
                             const [year, quarter] = period.split('-');
@@ -1169,7 +1338,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                             )}
                             
                             {/* Dynamic content based on view mode for financial statements */}
-                            {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && isRawDataView ? (
+                            {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed') && isRawDataView ? (
                               // Raw Data View - show quarterly data
                               periods.map((period: string) => {
                                 const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);

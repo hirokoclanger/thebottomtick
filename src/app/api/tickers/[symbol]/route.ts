@@ -2,7 +2,164 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import path from 'path';
 
-// Helper function to process financial data server-side
+// Helper function to analyze financial data and generate forward estimates
+function generateForwardEstimates(facts: any) {
+  if (!facts || !facts['us-gaap']) {
+    return null;
+  }
+
+  // Extract key metrics for analysis
+  const revenues = facts['us-gaap']['Revenues'] || facts['us-gaap']['RevenueFromContractWithCustomerExcludingAssessedTax'];
+  const netIncome = facts['us-gaap']['NetIncomeLoss'];
+  const shares = facts['us-gaap']['WeightedAverageNumberOfSharesOutstandingBasic'];
+  const eps = facts['us-gaap']['EarningsPerShareBasic'];
+
+  if (!revenues || !netIncome || !shares || !eps) {
+    return null;
+  }
+
+  // Get historical data points
+  const getHistoricalData = (metric: any) => {
+    const units = Object.keys(metric.units || {});
+    const primaryUnit = units.find(unit => unit === 'USD' || unit === 'shares') || units[0];
+    
+    if (!primaryUnit || !metric.units[primaryUnit]) return [];
+    
+    return metric.units[primaryUnit]
+      .filter((point: any) => point.end && point.val)
+      .map((point: any) => {
+        const endDate = new Date(point.end);
+        const year = endDate.getFullYear();
+        const month = endDate.getMonth() + 1;
+        const quarter = Math.ceil(month / 3);
+        return {
+          value: point.val,
+          period: `${year}-Q${quarter}`,
+          date: point.end,
+          year,
+          quarter
+        };
+      })
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
+  const revenueHistory = getHistoricalData(revenues);
+  const netIncomeHistory = getHistoricalData(netIncome);
+  const epsHistory = getHistoricalData(eps);
+
+  if (revenueHistory.length < 8 || netIncomeHistory.length < 8 || epsHistory.length < 8) {
+    return null; // Need at least 2 years of data for meaningful analysis
+  }
+
+  // Calculate growth rates and trends
+  const calculateGrowthRate = (data: any[]) => {
+    if (data.length < 4) return 0;
+    
+    const last4Quarters = data.slice(-4);
+    const previous4Quarters = data.slice(-8, -4);
+    
+    const recentSum = last4Quarters.reduce((sum: number, point: any) => sum + point.value, 0);
+    const previousSum = previous4Quarters.reduce((sum: number, point: any) => sum + point.value, 0);
+    
+    return previousSum !== 0 ? ((recentSum - previousSum) / Math.abs(previousSum)) * 100 : 0;
+  };
+
+  const revenueGrowthRate = calculateGrowthRate(revenueHistory);
+  const netIncomeGrowthRate = calculateGrowthRate(netIncomeHistory);
+  const epsGrowthRate = calculateGrowthRate(epsHistory);
+
+  // Calculate profit margins
+  const latestRevenue = revenueHistory[revenueHistory.length - 1]?.value || 0;
+  const latestNetIncome = netIncomeHistory[netIncomeHistory.length - 1]?.value || 0;
+  const netMargin = latestRevenue !== 0 ? (latestNetIncome / latestRevenue) * 100 : 0;
+
+  // Generate forward estimates based on historical trends
+  const currentYear = new Date().getFullYear();
+  const latestEPS = epsHistory[epsHistory.length - 1]?.value || 0;
+  
+  // Conservative growth projection (cap at reasonable levels)
+  const projectedEPSGrowth = Math.min(Math.max(epsGrowthRate * 0.8, -20), 25); // Cap between -20% and 25%
+  
+  // Generate annual estimates
+  const annualEstimates = [];
+  for (let i = 0; i < 2; i++) {
+    const year = currentYear + i;
+    const growthFactor = Math.pow(1 + projectedEPSGrowth / 100, i);
+    const projectedEPS = latestEPS * growthFactor;
+    
+    // Calculate high/low estimates with reasonable variance
+    const variance = Math.abs(projectedEPS * 0.1); // 10% variance
+    const high = projectedEPS + variance;
+    const low = projectedEPS - variance;
+    
+    // Simple price target based on historical P/E ratios (assume 15-20x earnings)
+    const peRatio = 17.5; // Conservative P/E ratio
+    const priceTarget = projectedEPS * peRatio;
+    
+    annualEstimates.push({
+      year: year.toString(),
+      eps: Number(projectedEPS.toFixed(2)),
+      high: Number(high.toFixed(2)),
+      low: Number(low.toFixed(2)),
+      priceTarget: Number(priceTarget.toFixed(0))
+    });
+  }
+
+  // Generate quarterly estimates for next 8 quarters
+  const quarterlyEstimates = [];
+  const lastQuarter = epsHistory[epsHistory.length - 1];
+  const quarterlyGrowthRate = projectedEPSGrowth / 4; // Quarterly growth rate
+  
+  for (let i = 1; i <= 8; i++) {
+    const baseEPS = lastQuarter.value;
+    const growthFactor = Math.pow(1 + quarterlyGrowthRate / 100, i);
+    const projectedQuarterlyEPS = baseEPS * growthFactor;
+    
+    // Calculate quarter and year
+    const futureDate = new Date(lastQuarter.date);
+    futureDate.setMonth(futureDate.getMonth() + (i * 3));
+    const quarter = Math.ceil((futureDate.getMonth() + 1) / 3);
+    const year = futureDate.getFullYear().toString().slice(-2);
+    
+    // Calculate percentage change from same quarter previous year
+    const sameQuarterPrevYear = epsHistory.find((point: any) => 
+      point.quarter === quarter && point.year === futureDate.getFullYear() - 1
+    );
+    
+    const changePercent = sameQuarterPrevYear ? 
+      ((projectedQuarterlyEPS - sameQuarterPrevYear.value) / Math.abs(sameQuarterPrevYear.value)) * 100 : 
+      quarterlyGrowthRate;
+    
+    // Estimate sales based on historical revenue patterns
+    const avgQuarterlyRevenue = revenueHistory.slice(-4).reduce((sum: number, point: any) => sum + point.value, 0) / 4;
+    const projectedSales = avgQuarterlyRevenue * Math.pow(1 + revenueGrowthRate / 400, i); // Quarterly compounding
+    
+    quarterlyEstimates.push({
+      quarter: `${getMonthName(quarter)}${year}`,
+      eps: Number(projectedQuarterlyEPS.toFixed(2)),
+      change: `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(0)}%`,
+      sales: Number((projectedSales / 1e9).toFixed(1)), // Convert to billions
+      salesChange: `${revenueGrowthRate >= 0 ? '+' : ''}${Math.round(revenueGrowthRate / 4)}%`
+    });
+  }
+
+  function getMonthName(quarter: number): string {
+    const months = ['', 'Mar-', 'Jun-', 'Sep-', 'Dec-'];
+    return months[quarter] || 'Mar-';
+  }
+
+  return {
+    annualEstimates,
+    quarterlyEstimates,
+    analysisMetrics: {
+      revenueGrowthRate: Number(revenueGrowthRate.toFixed(1)),
+      netIncomeGrowthRate: Number(netIncomeGrowthRate.toFixed(1)),
+      epsGrowthRate: Number(epsGrowthRate.toFixed(1)),
+      netMargin: Number(netMargin.toFixed(1)),
+      dataQuality: revenueHistory.length >= 12 ? 'Good' : 'Limited'
+    }
+  };
+}
 function processFinancialDataServer(facts: any, viewType: string = 'default') {
   if (!facts || !facts['us-gaap']) {
     return { metrics: [], periods: [] };
@@ -109,6 +266,7 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
   const isIncomeView = viewType === 'income';
   const isBalanceView = viewType === 'balance';
   const isCashFlowView = viewType === 'cashflow';
+  const isForwardView = viewType === 'forward';
   
   const metricsToProcess = isDetailedView 
     ? Object.keys(facts['us-gaap']) 
@@ -118,12 +276,40 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
         ? balanceSheetMetrics
         : isCashFlowView
           ? cashFlowMetrics
-          : keyMetrics;
+          : isForwardView
+            ? [] // Forward estimates will be handled separately
+            : keyMetrics;
 
-  console.log(`Server processing: viewType=${viewType}, isDetailedView=${isDetailedView}, total available metrics=${Object.keys(facts['us-gaap']).length}, processing ${metricsToProcess.length} metrics`);
+  console.log(`Server processing: viewType=${viewType}, isDetailedView=${isDetailedView}, isForwardView=${isForwardView}, total available metrics=${Object.keys(facts['us-gaap']).length}, processing ${metricsToProcess.length} metrics`);
 
   const processedMetrics: any[] = [];
   const allPeriods = new Set<string>();
+
+  // For forward estimates, return mock data structure immediately
+  if (isForwardView) {
+    return {
+      metrics: [],
+      periods: [],
+      forwardEstimates: {
+        annualEstimates: [
+          { year: '2023', eps: 6.13, high: 6.16, low: 6.10, priceTarget: 190 },
+          { year: '2024', eps: 6.64, high: 6.70, low: 6.58, priceTarget: 200 },
+          { year: '2025', eps: 7.23, high: 7.30, low: 7.16, priceTarget: 210 },
+          { year: '2026', eps: 7.85, high: 7.92, low: 7.78, priceTarget: 220 },
+          { year: '2027', eps: 8.44, high: 8.51, low: 8.37, priceTarget: 230 }
+        ],
+        quarterlyEstimates: [
+          { quarter: 'Mar-18', eps: 1.07, change: '+692%', sales: 29.1, salesChange: '+26%' },
+          { quarter: 'Jun-18', eps: 1.78, change: '+357%', sales: 31.4, salesChange: '+17%' },
+          { quarter: 'Sep-18', eps: 0.52, change: '+206%', sales: 32.7, salesChange: '+29%' },
+          { quarter: 'Dec-18', eps: 1.54, change: '+54%', sales: 43.7, salesChange: '+22%' },
+          { quarter: 'Mar-19', eps: 1.44, change: '+35%', sales: 36.7, salesChange: '+23%' },
+          { quarter: 'Jun-19', eps: 0.40, change: '-78%', sales: 38.5, salesChange: '+23%' },
+          { quarter: 'Sep-19', eps: 1.52, change: '0%', sales: 43.7, salesChange: '+34%' }
+        ]
+      }
+    };
+  }
 
   metricsToProcess.forEach(metricKey => {
     const metric = facts['us-gaap'][metricKey];

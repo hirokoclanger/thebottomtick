@@ -85,18 +85,21 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
     } else if (lowerTicker.endsWith('.q')) {
       viewType = 'quarterly';
       cleanTicker = ticker.slice(0, -2);
-    } else if (lowerTicker.endsWith('.c')) {
+    } else if (lowerTicker.endsWith('.ch')) {
       viewType = 'charts';
-      cleanTicker = ticker.slice(0, -2);
+      cleanTicker = ticker.slice(0, -3);
     } else if (lowerTicker.endsWith('.i')) {
       viewType = 'income';
       cleanTicker = ticker.slice(0, -2);
     } else if (lowerTicker.endsWith('.b')) {
       viewType = 'balance';
       cleanTicker = ticker.slice(0, -2);
-    } else if (lowerTicker.endsWith('.cf')) {
+    } else if (lowerTicker.endsWith('.c')) {
       viewType = 'cashflow';
-      cleanTicker = ticker.slice(0, -3);
+      cleanTicker = ticker.slice(0, -2);
+    } else if (lowerTicker.endsWith('.f')) {
+      viewType = 'forward';
+      cleanTicker = ticker.slice(0, -2);
     }
     
     setIsOpen(false);
@@ -131,6 +134,9 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
       } else if (term.endsWith('.C')) {
         viewType = 'cashflow';
         cleanTerm = term.slice(0, -2);
+      } else if (term.endsWith('.F')) {
+        viewType = 'forward';
+        cleanTerm = term.slice(0, -2);
       }
       
       if (filteredTickers.length > 0) {
@@ -155,11 +161,13 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
             <p className="text-blue-600">View types:</p>
             <div className="text-xs space-y-1 text-left max-w-md mx-auto">
               <p>• Default: <code>AAPL</code> - Key metrics overview</p>
-              <p>• Quarterly: <code>AAPL.q</code> - Financial data table</p>
+              <p>• Detailed: <code>AAPL.d</code> - All metrics with trends</p>
+              <p>• Quarterly: <code>AAPL.q</code> - Grouped quarterly table</p>
               <p>• Income: <code>AAPL.i</code> - Income statement metrics</p>
-              <p>• Balance: <code>AAPL.b</code> - Balance sheet with charts</p>
-              <p>• Cash Flow: <code>AAPL.c</code> - Cash flow with charts</p>
-              <p>• Detailed: <code>AAPL.d</code> - All metrics</p>
+              <p>• Balance: <code>AAPL.b</code> - Balance sheet metrics</p>
+              <p>• Cash Flow: <code>AAPL.c</code> - Cash flow metrics</p>
+              <p>• Charts: <code>AAPL.ch</code> - All metrics as charts</p>
+              <p>• Forward: <code>AAPL.f</code> - Forward estimates & forecasts</p>
             </div>
           </div>
         </div>
@@ -175,6 +183,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
         case 'balance': return 'Balance Sheet';
         case 'cashflow': return 'Cash Flow';
         case 'detailed': return 'Detailed View';
+        case 'forward': return 'Forward Estimates';
         default: return 'Overview';
       }
     };
@@ -235,7 +244,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
         </div>
         
         <div className="mb-4 text-sm text-gray-600">
-          <p><strong>Tip:</strong> Add ".d" for detailed view, ".i" for income statement, ".b" for balance sheet, ".c" for cashflow, ".ch" for charts (e.g., AAPL.d, AAPL.i, AAPL.b, AAPL.c, AAPL.ch)</p>
+          <p><strong>Tip:</strong> Add ".d" for detailed view, ".i" for income statement, ".b" for balance sheet, ".c" for cashflow, ".ch" for charts, ".q" for quarterly table, ".f" for forward estimates (e.g., AAPL.d, AAPL.i, AAPL.b, AAPL.c, AAPL.ch, AAPL.q, AAPL.f)</p>
         </div>
         
         {searchTerm && filteredTickers.length === 0 && (
