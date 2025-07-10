@@ -85,15 +85,18 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
     } else if (lowerTicker.endsWith('.q')) {
       viewType = 'quarterly';
       cleanTicker = ticker.slice(0, -2);
+    } else if (lowerTicker.endsWith('.c')) {
+      viewType = 'charts';
+      cleanTicker = ticker.slice(0, -2);
     } else if (lowerTicker.endsWith('.i')) {
       viewType = 'income';
       cleanTicker = ticker.slice(0, -2);
     } else if (lowerTicker.endsWith('.b')) {
       viewType = 'balance';
       cleanTicker = ticker.slice(0, -2);
-    } else if (lowerTicker.endsWith('.c')) {
+    } else if (lowerTicker.endsWith('.cf')) {
       viewType = 'cashflow';
-      cleanTicker = ticker.slice(0, -2);
+      cleanTicker = ticker.slice(0, -3);
     }
     
     setIsOpen(false);
@@ -116,15 +119,18 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
       } else if (term.endsWith('.Q')) {
         viewType = 'quarterly';
         cleanTerm = term.slice(0, -2);
+      } else if (term.endsWith('.C')) {
+        viewType = 'charts';
+        cleanTerm = term.slice(0, -2);
       } else if (term.endsWith('.I')) {
         viewType = 'income';
         cleanTerm = term.slice(0, -2);
       } else if (term.endsWith('.B')) {
         viewType = 'balance';
         cleanTerm = term.slice(0, -2);
-      } else if (term.endsWith('.C')) {
+      } else if (term.endsWith('.CF')) {
         viewType = 'cashflow';
-        cleanTerm = term.slice(0, -2);
+        cleanTerm = term.slice(0, -3);
       }
       
       if (filteredTickers.length > 0) {

@@ -25,7 +25,7 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
     'OperatingCashFlowsFromOperatingActivities'
   ];
 
-  const isDetailedView = viewType === 'detailed';
+  const isDetailedView = viewType === 'detailed' || viewType === 'quarterly' || viewType === 'charts';
   const metricsToProcess = isDetailedView 
     ? Object.keys(facts['us-gaap']) 
     : keyMetrics;
@@ -67,17 +67,26 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
 
     if (dataPoints.length > 0) {
       processedMetrics.push({
-        name: metricKey,
-        description: metricKey.replace(/([A-Z])/g, ' $1').trim(),
+        name: metricKey.replace(/([A-Z])/g, ' $1').trim(),
+        description: metric.description || metricKey.replace(/([A-Z])/g, ' $1').trim(),
         unit: primaryUnit,
         dataPoints: dataPoints.slice(-20) // Last 20 quarters
       });
     }
   });
 
+  // Sort periods with latest first (descending order)
+  const sortedPeriods = Array.from(allPeriods).sort((a, b) => {
+    const [yearA, quarterA] = a.split('-Q');
+    const [yearB, quarterB] = b.split('-Q');
+    const dateA = parseInt(yearA) * 4 + parseInt(quarterA);
+    const dateB = parseInt(yearB) * 4 + parseInt(quarterB);
+    return dateB - dateA; // Latest first
+  });
+
   return {
     metrics: processedMetrics,
-    periods: Array.from(allPeriods).sort()
+    periods: sortedPeriods
   };
 }
 

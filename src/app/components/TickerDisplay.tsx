@@ -304,24 +304,24 @@ function processFinancialData(facts: any, isDetailedView: boolean = false): { me
 
     if (dataPoints.length > 0) {
       metrics.push({
-        name: metricKey.replace(/([A-Z])/g, ' $1').trim(),
-        description: metric.description || '',
+        name: formatMetricName(metricKey),
+        description: metric.description || formatMetricName(metricKey),
         unit: primaryUnit,
         dataPoints
       });
     }
   });
 
-  // Sort periods chronologically (most recent first)
+  // Sort periods chronologically with latest first (descending order)
   const sortedPeriods = Array.from(allPeriods).sort((a, b) => {
     const [yearA, quarterA] = a.split('-Q');
     const [yearB, quarterB] = b.split('-Q');
     const dateA = parseInt(yearA) * 4 + parseInt(quarterA);
     const dateB = parseInt(yearB) * 4 + parseInt(quarterB);
-    return dateB - dateA;
+    return dateB - dateA; // Latest first
   });
 
-  return { metrics, periods: sortedPeriods }; // Show all available quarters for table
+  return { metrics, periods: sortedPeriods };
 }
 
 // Helper function to format values
@@ -419,6 +419,15 @@ function calculateMetricTrend(metric: ProcessedMetric, shortTermPeriods: number 
   };
 }
 
+// Helper function to format metric names with proper spacing
+function formatMetricName(name: string): string {
+  return name
+    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+    .replace(/([a-z])([A-Z])/g, '$1 $2') // Add space between lowercase and uppercase
+    .trim() // Remove leading/trailing spaces
+    .replace(/\s+/g, ' '); // Replace multiple spaces with single space
+}
+
 // Helper function to get short metric names
 function getShortMetricName(name: string): string {
   const nameMap: Record<string, string> = {
@@ -440,6 +449,16 @@ function getShortMetricName(name: string): string {
   
   return nameMap[name] || name;
 }
+
+/**
+ * TickerDisplay Component
+ * 
+ * Supports multiple view types:
+ * - default: Shows key metrics summary + limited charts + collapsible table
+ * - detailed: Shows all metrics summary + limited charts (no bottom table)
+ * - quarterly: Shows full table with all metrics only  
+ * - charts: Shows all metrics as charts only
+ */
 
 export default function TickerDisplay({ ticker, data, onClear, viewType = 'default' }: TickerDisplayProps) {
   const [isChartsExpanded, setIsChartsExpanded] = useState(false);
@@ -635,7 +654,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
 
         {/* Financial Charts and Data */}
         {(data.facts || data.metrics) && (() => {
-          const isDetailedView = viewType === 'detailed' || viewType === 'quarterly';
+          const isDetailedView = viewType === 'detailed' || viewType === 'quarterly' || viewType === 'charts';
           
           // Handle both old format (data.facts) and new format (data.metrics)
           let metrics, periods;
@@ -693,7 +712,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b-2 border-gray-300">
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[240px]">
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[180px]">
                           Metric
                         </th>
                         {periods.map((period: string) => (
@@ -706,7 +725,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     <tbody>
                       {metrics.map((metric: ProcessedMetric, index: number) => (
                         <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="py-3 px-4 w-[350px]">
+                          <td className="py-3 px-4 w-[200px]">
                             <div>
                               <div className="font-medium text-gray-900 cursor-help" title={metric.description}>
                                 {metric.name}
@@ -737,6 +756,36 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                   <p className="text-xs text-gray-500">
                     Quarterly View: Shows all available quarterly financial metrics in table format. Hover over metric names for descriptions.
                     Values are shown in millions (M) or billions (B) where applicable.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          // Charts view: show only charts with all metrics
+          if (viewType === 'charts') {
+            return (
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Financial Charts
+                    <span className="ml-2 text-sm font-normal text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      All {metrics.length} Metrics
+                    </span>
+                  </h2>
+                </div>
+                
+                {/* All Charts Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {metrics.map((metric: ProcessedMetric) => (
+                    <MetricChart key={metric.name} metric={metric} />
+                  ))}
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                  <p className="text-blue-800">
+                    📊 <strong>Charts View:</strong> Displaying all {metrics.length} available financial metrics as charts. 
+                    Charts display the last 6 years (24 quarters) for readability.
                   </p>
                 </div>
               </div>
@@ -871,13 +920,14 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                 )}
               </div>
 
-              {/* Financial Data Table */}
-              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <div 
-                  className="flex justify-between items-center cursor-pointer"
-                  onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}
-                >
-                  <h2 className="text-xl font-bold text-gray-800">Financial Data (Quarterly)</h2>
+              {/* Financial Data Table - Hide in detailed view */}
+              {viewType !== 'detailed' && (
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                  <div 
+                    className="flex justify-between items-center cursor-pointer"
+                    onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}
+                  >
+                    <h2 className="text-xl font-bold text-gray-800">Financial Data (Quarterly)</h2>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-600">
                       {isMetricsExpanded ? 'Hide Table' : 'Show Table'}
@@ -896,7 +946,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                       <table className="w-full border-collapse">
                         <thead>
                           <tr className="border-b-2 border-gray-300">
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[240px]">
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-[180px]">
                               Metric
                             </th>
                             {periods.map((period: string) => (
@@ -909,7 +959,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                         <tbody>
                           {metrics.map((metric: ProcessedMetric, index: number) => (
                             <tr key={metric.name} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                              <td className="py-3 px-4 w-[350px]">
+                              <td className="py-3 px-4 w-[200px]">
                                 <div>
                                   <div className="font-medium text-gray-900 cursor-help" title={metric.description}>
                                     {metric.name}
@@ -959,6 +1009,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                   </div>
                 )}
               </div>
+              )}
             </>
           );
         })()}
