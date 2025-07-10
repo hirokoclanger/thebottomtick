@@ -259,20 +259,22 @@ const MoneyFlowCircle: React.FC<MoneyFlowCircleProps> = ({ data, quarter, ticker
         </div>
 
         {/* Flow Summary - Right Side */}
-        <div className="w-80 space-y-3">
+        <div className="w-96 space-y-3">
           <h4 className="font-semibold text-lg">Flow Summary</h4>
-          {flows.map((flow, index) => (
-            <div key={index} className="bg-white p-4 rounded-lg border shadow-sm">
-              <div className="flex items-center space-x-2 mb-2">
-                <ArrowRight size={18} />
-                <span className="text-sm font-medium">{flow.from} → {flow.to}</span>
+          <div className="grid grid-cols-4 gap-2">
+            {flows.map((flow, index) => (
+              <div key={index} className="bg-white p-2 rounded-lg border shadow-sm">
+                <div className="flex items-center space-x-1 mb-1">
+                  <ArrowRight size={12} />
+                  <span className="text-xs font-medium truncate">{flow.from} → {flow.to}</span>
+                </div>
+                <div className="text-sm font-semibold">{formatValue(flow.amount)}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Flow width reflects magnitude
+                </div>
               </div>
-              <div className="text-xl font-semibold">{formatValue(flow.amount)}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Flow width reflects magnitude
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

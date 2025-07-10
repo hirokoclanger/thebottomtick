@@ -153,12 +153,6 @@ const FinancialVisualizationDashboard: React.FC<FinancialVisualizationDashboardP
 
   return (
     <div className="w-full h-full">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-2">Financial Flow Analysis - {ticker}</h2>
-        <p className="text-gray-600">Visualize how money moves through the business</p>
-      </div>
-
       {/* Controls */}
       <div className="mb-6 space-y-4">
         {/* Timeframe Switch */}
