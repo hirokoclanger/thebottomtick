@@ -38,4 +38,4 @@ next-env.d.ts
 # Financial data and ticker information
 src/data/
 data/companyfacts/
-company_tickers.json
+

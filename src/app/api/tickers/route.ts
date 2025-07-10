@@ -4,8 +4,8 @@ import path from 'path';
 
 export async function GET() {
   try {
-    // Load ticker-CIK mapping
-    const tickerPath = path.join(process.cwd(), 'src', 'data', 'company_tickers.json');
+    // Load ticker-CIK mapping from committed data file
+    const tickerPath = path.join(process.cwd(), 'src', 'lib', 'data', 'company_tickers.json');
     const tickerData = JSON.parse(await readFile(tickerPath, 'utf-8'));
     
     return NextResponse.json(tickerData);
