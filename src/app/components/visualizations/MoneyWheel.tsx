@@ -303,14 +303,14 @@ const MoneyWheel: React.FC<MoneyWheelProps> = ({ data, quarter, ticker }) => {
         </div>
 
         {/* Segment Details */}
-        <div className="w-80 bg-white rounded-lg p-3 shadow-sm">
-          <h4 className="font-semibold text-sm mb-3">Segment Details</h4>
+        <div className="w-96 bg-white rounded-lg p-4 shadow-sm">
+          <h4 className="font-semibold text-base mb-4">Segment Details</h4>
           
-          <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3 max-h-none">
             {segments.map((segment) => (
               <div
                 key={segment.id}
-                className={`p-2 rounded border cursor-pointer transition-all text-xs ${
+                className={`p-3 rounded border cursor-pointer transition-all text-sm ${
                   selectedSegment === segment.id
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300'
@@ -319,22 +319,22 @@ const MoneyWheel: React.FC<MoneyWheelProps> = ({ data, quarter, ticker }) => {
               >
                 <div className="flex items-start space-x-2">
                   <div
-                    className="w-2 h-2 rounded-full flex-shrink-0 mt-1"
+                    className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
                     style={{ backgroundColor: segment.color }}
                   ></div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate text-xs mb-1">{segment.label}</div>
+                    <div className="font-medium truncate text-sm mb-1">{segment.label}</div>
                     <div className="flex items-center space-x-1 mb-1">
                       {segment.change > 0 ? (
-                        <TrendingUp className="text-green-600" size={8} />
+                        <TrendingUp className="text-green-600" size={10} />
                       ) : (
-                        <TrendingDown className="text-red-600" size={8} />
+                        <TrendingDown className="text-red-600" size={10} />
                       )}
                       <span className={`text-xs font-semibold ${segment.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {segment.change > 0 ? '+' : ''}{segment.change.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="text-xs text-gray-600 mb-1">{formatValue(segment.value)}</div>
+                    <div className="text-sm text-gray-600 mb-1">{formatValue(segment.value)}</div>
                     <div className="text-xs text-gray-500">
                       {((segment.value / totalValue) * 100).toFixed(1)}%
                     </div>

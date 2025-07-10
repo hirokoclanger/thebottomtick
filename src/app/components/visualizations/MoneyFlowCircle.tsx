@@ -108,26 +108,50 @@ const MoneyFlowCircle: React.FC<MoneyFlowCircleProps> = ({ data, quarter, ticker
     return `$${value.toFixed(0)}`;
   };
 
-  const getNodeSize = (value: number) => {
-    const maxValue = Math.max(...nodes.map(n => n.value));
-    const minValue = Math.min(...nodes.map(n => n.value));
-    const minSize = 45;
-    const maxSize = 100;
+  const getNodeSize = (value: number, change: number) => {
+    const baseSize = 40;
+    const maxSize = 120;
+    const minSize = 20;
     
-    // Use logarithmic scale for more pronounced differences
-    const normalizedValue = Math.log(value + 1) / Math.log(maxValue + 1);
-    return minSize + normalizedValue * (maxSize - minSize);
+    // Calculate size based on both value and change magnitude
+    const maxValue = Math.max(...nodes.map(n => n.value));
+    const maxChange = Math.max(...nodes.map(n => Math.abs(n.change)));
+    
+    // Weight change more heavily than value for dramatic effect
+    const valueWeight = 0.3;
+    const changeWeight = 0.7;
+    
+    // Normalize value
+    const normalizedValue = Math.log(Math.abs(value) + 1) / Math.log(maxValue + 1);
+    
+    // Normalize change with higher sensitivity
+    const normalizedChange = Math.abs(change) / (maxChange + 1);
+    
+    // Combine both factors
+    const combinedFactor = (valueWeight * normalizedValue) + (changeWeight * normalizedChange);
+    
+    // Apply exponential scaling for more dramatic differences
+    const scaledFactor = Math.pow(combinedFactor, 1.5);
+    
+    return Math.max(minSize, baseSize + (scaledFactor * (maxSize - baseSize)));
   };
 
-  const getFlowWidth = (amount: number) => {
+  const getFlowWidth = (amount: number, fromNode?: any, toNode?: any) => {
     const maxFlow = Math.max(...flows.map(f => f.amount));
-    const minFlow = Math.min(...flows.map(f => f.amount));
-    const minWidth = 3;
-    const maxWidth = 12;
+    const minWidth = 2;
+    const maxWidth = 16;
     
     // Use logarithmic scale for more pronounced differences
     const normalizedAmount = Math.log(amount + 1) / Math.log(maxFlow + 1);
-    return minWidth + normalizedAmount * (maxWidth - minWidth);
+    
+    // If we have node information, factor in their changes for more dynamic flow
+    let changeFactor = 1;
+    if (fromNode && toNode) {
+      const avgChange = Math.abs((fromNode.change + toNode.change) / 2);
+      changeFactor = 1 + (avgChange / 100); // Boost based on average change
+    }
+    
+    return Math.max(minWidth, (minWidth + normalizedAmount * (maxWidth - minWidth)) * changeFactor);
   };
 
   return (
@@ -137,112 +161,119 @@ const MoneyFlowCircle: React.FC<MoneyFlowCircleProps> = ({ data, quarter, ticker
         <p className="text-gray-600">Watch money flow through all business areas using complete financial data</p>
       </div>
 
-      <div className="relative bg-gray-50 rounded-lg p-8" style={{ height: '650px' }}>
-        {/* Flow Lines */}
-        <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
-          {flows.map((flow, index) => {
-            const fromNode = nodes.find(n => n.id === flow.from);
-            const toNode = nodes.find(n => n.id === flow.to);
-            if (!fromNode || !toNode) return null;
+      <div className="flex gap-6">
+        {/* Flow Visualization */}
+        <div className="flex-1 relative bg-gray-50 rounded-lg p-8" style={{ height: '650px' }}>
+          {/* Flow Lines */}
+          <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
+            {flows.map((flow, index) => {
+              const fromNode = nodes.find(n => n.id === flow.from);
+              const toNode = nodes.find(n => n.id === flow.to);
+              if (!fromNode || !toNode) return null;
 
-            const flowWidth = getFlowWidth(flow.amount);
-            const animationOffset = (animationStep * 2) % 100;
+              const flowWidth = getFlowWidth(flow.amount, fromNode, toNode);
+              const animationOffset = (animationStep * 2) % 100;
 
-            return (
-              <g key={index}>
-                {/* Flow line */}
-                <line
-                  x1={fromNode.x}
-                  y1={fromNode.y}
-                  x2={toNode.x}
-                  y2={toNode.y}
-                  stroke={flow.color === 'green' ? '#10b981' : 
+              return (
+                <g key={index}>
+                  {/* Flow line */}
+                  <line
+                    x1={fromNode.x}
+                    y1={fromNode.y}
+                    x2={toNode.x}
+                    y2={toNode.y}
+                    stroke={flow.color === 'green' ? '#10b981' : 
+                            flow.color === 'blue' ? '#3b82f6' :
+                            flow.color === 'orange' ? '#f59e0b' :
+                            flow.color === 'purple' ? '#8b5cf6' :
+                            flow.color === 'red' ? '#ef4444' :
+                            flow.color === 'teal' ? '#14b8a6' :
+                            '#eab308'}
+                    strokeWidth={flowWidth}
+                    opacity={0.6}
+                  />
+                  
+                  {/* Animated flow particles */}
+                  <circle
+                    cx={fromNode.x + (toNode.x - fromNode.x) * (animationOffset / 100)}
+                    cy={fromNode.y + (toNode.y - fromNode.y) * (animationOffset / 100)}
+                    r={flowWidth / 2}
+                    fill={flow.color === 'green' ? '#10b981' : 
                           flow.color === 'blue' ? '#3b82f6' :
                           flow.color === 'orange' ? '#f59e0b' :
                           flow.color === 'purple' ? '#8b5cf6' :
                           flow.color === 'red' ? '#ef4444' :
                           flow.color === 'teal' ? '#14b8a6' :
                           '#eab308'}
-                  strokeWidth={flowWidth}
-                  opacity={0.6}
-                />
-                
-                {/* Animated flow particles */}
-                <circle
-                  cx={fromNode.x + (toNode.x - fromNode.x) * (animationOffset / 100)}
-                  cy={fromNode.y + (toNode.y - fromNode.y) * (animationOffset / 100)}
-                  r={flowWidth / 2}
-                  fill={flow.color === 'green' ? '#10b981' : 
-                        flow.color === 'blue' ? '#3b82f6' :
-                        flow.color === 'orange' ? '#f59e0b' :
-                        flow.color === 'purple' ? '#8b5cf6' :
-                        flow.color === 'red' ? '#ef4444' :
-                        flow.color === 'teal' ? '#14b8a6' :
-                        '#eab308'}
-                  opacity={0.8}
-                />
-              </g>
+                    opacity={0.8}
+                  />
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Nodes */}
+          {nodes.map((node) => {
+            const size = getNodeSize(node.value, node.change);
+            return (
+              <div
+                key={node.id}
+                className={`absolute ${node.color} rounded-full flex flex-col items-center justify-center text-white shadow-lg cursor-pointer hover:scale-110 transition-transform`}
+                style={{
+                  left: `${node.x - size/2}px`,
+                  top: `${node.y - size/2}px`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  zIndex: 2
+                }}
+              >
+                <DollarSign size={16} />
+                <div className="text-xs font-semibold text-center px-1">{node.id}</div>
+                <div className="text-xs">{formatValue(node.value)}</div>
+              </div>
             );
           })}
-        </svg>
 
-        {/* Nodes */}
-        {nodes.map((node) => {
-          const size = getNodeSize(node.value);
-          return (
-            <div
-              key={node.id}
-              className={`absolute ${node.color} rounded-full flex flex-col items-center justify-center text-white shadow-lg cursor-pointer hover:scale-110 transition-transform`}
-              style={{
-                left: `${node.x - size/2}px`,
-                top: `${node.y - size/2}px`,
-                width: `${size}px`,
-                height: `${size}px`,
-                zIndex: 2
-              }}
-            >
-              <DollarSign size={16} />
-              <div className="text-xs font-semibold text-center px-1">{node.id}</div>
-              <div className="text-xs">{formatValue(node.value)}</div>
-            </div>
-          );
-        })}
-
-        {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-white p-4 rounded-lg shadow-lg" style={{ zIndex: 3 }}>
-          <h4 className="font-semibold mb-2">Flow Legend</h4>
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-2 bg-green-500 rounded"></div>
-              <span className="text-xs">Revenue to Operations</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-2 bg-blue-500 rounded"></div>
-              <span className="text-xs">Revenue to R&D</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-2 bg-purple-500 rounded"></div>
-              <span className="text-xs">Operations to Investments</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-2 bg-yellow-500 rounded"></div>
-              <span className="text-xs">Cash to Profit</span>
+          {/* Legend */}
+          <div className="absolute bottom-4 left-4 bg-white p-4 rounded-lg shadow-lg" style={{ zIndex: 3 }}>
+            <h4 className="font-semibold mb-2">Flow Legend</h4>
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-2 bg-green-500 rounded"></div>
+                <span className="text-xs">Revenue to Operations</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-2 bg-blue-500 rounded"></div>
+                <span className="text-xs">Revenue to R&D</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-2 bg-purple-500 rounded"></div>
+                <span className="text-xs">Operations to Investments</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-2 bg-yellow-500 rounded"></div>
+                <span className="text-xs">Cash to Profit</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Flow Summary */}
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-        {flows.slice(0, 4).map((flow, index) => (
-          <div key={index} className="bg-white p-3 rounded-lg border">
-            <div className="flex items-center space-x-2 mb-1">
-              <ArrowRight size={16} />
-              <span className="text-sm font-medium">{flow.from} → {flow.to}</span>
+        {/* Flow Summary - Right Side */}
+        <div className="w-80 space-y-3">
+          <h4 className="font-semibold text-lg">Flow Summary</h4>
+          {flows.map((flow, index) => (
+            <div key={index} className="bg-white p-4 rounded-lg border shadow-sm">
+              <div className="flex items-center space-x-2 mb-2">
+                <ArrowRight size={18} />
+                <span className="text-sm font-medium">{flow.from} → {flow.to}</span>
+              </div>
+              <div className="text-xl font-semibold">{formatValue(flow.amount)}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                Flow width reflects magnitude
+              </div>
             </div>
-            <div className="text-lg font-semibold">{formatValue(flow.amount)}</div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

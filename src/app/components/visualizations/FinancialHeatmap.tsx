@@ -97,29 +97,29 @@ const FinancialHeatmap: React.FC<FinancialHeatmapProps> = ({ data, quarter, tick
     return change > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />;
   };
 
-  const getCellSize = (value: number) => {
-    if (processedData.maxValue === 0) return 'w-16 h-16';
-    const ratio = Math.abs(value) / processedData.maxValue;
-    if (ratio > 0.7) return 'w-20 h-20';
-    if (ratio > 0.4) return 'w-16 h-16';
-    if (ratio > 0.2) return 'w-12 h-12';
-    return 'w-10 h-10';
-  };
-
   const getCellColorClass = (change: number) => {
-    if (change === 0) return 'bg-gray-100 border-gray-300';
+    if (change === 0) return 'bg-gray-500';
     const intensity = Math.abs(change);
     if (change > 0) {
-      if (intensity >= 20) return 'bg-green-500 border-green-600';
-      if (intensity >= 10) return 'bg-green-400 border-green-500';
-      if (intensity >= 5) return 'bg-green-300 border-green-400';
-      return 'bg-green-200 border-green-300';
+      if (intensity >= 20) return 'bg-green-600';
+      if (intensity >= 10) return 'bg-green-500';
+      if (intensity >= 5) return 'bg-green-400';
+      return 'bg-green-300';
     } else {
-      if (intensity >= 20) return 'bg-red-500 border-red-600';
-      if (intensity >= 10) return 'bg-red-400 border-red-500';
-      if (intensity >= 5) return 'bg-red-300 border-red-400';
-      return 'bg-red-200 border-red-300';
+      if (intensity >= 20) return 'bg-red-600';
+      if (intensity >= 10) return 'bg-red-500';
+      if (intensity >= 5) return 'bg-red-400';
+      return 'bg-red-300';
     }
+  };
+
+  // Calculate optimal grid dimensions for each section
+  const getGridDimensions = (itemCount: number) => {
+    if (itemCount <= 4) return { cols: 2, rows: 2 };
+    if (itemCount <= 9) return { cols: 3, rows: 3 };
+    if (itemCount <= 16) return { cols: 4, rows: 4 };
+    if (itemCount <= 25) return { cols: 5, rows: 5 };
+    return { cols: 6, rows: Math.ceil(itemCount / 6) };
   };
 
   return (
@@ -132,44 +132,59 @@ const FinancialHeatmap: React.FC<FinancialHeatmapProps> = ({ data, quarter, tick
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {processedData.sections.map((section) => (
-          <div key={section.id} className="border rounded-lg p-4 bg-gray-50">
-            <h4 className="text-sm font-bold mb-4 text-gray-700 border-b pb-2">
-              {section.label}
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {section.items.map((item) => (
-                <div
-                  key={item.id}
-                  className={`
-                    ${getCellSize(item.value)} 
-                    ${getCellColorClass(item.change)}
-                    border-2 rounded-lg p-2 cursor-pointer transition-all duration-200
-                    hover:scale-105 hover:shadow-lg
-                    ${selectedCell === item.id ? 'ring-2 ring-blue-500' : ''}
-                  `}
-                  onClick={() => setSelectedCell(selectedCell === item.id ? null : item.id)}
-                >
-                  <div className="flex flex-col h-full justify-between text-xs">
-                    <div className="font-medium text-gray-800 leading-tight">
-                      {item.label.split(' ').slice(0, 2).join(' ')}
-                    </div>
-                    <div className="text-right mt-1">
-                      <div className="font-bold text-gray-900">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 h-full">
+        {processedData.sections.map((section) => {
+          const { cols, rows } = getGridDimensions(section.items.length);
+          const cellSize = Math.min(200 / cols, 200 / rows); // Adaptive cell size
+          
+          return (
+            <div key={section.id} className="border-2 border-gray-800 bg-gray-50 flex flex-col">
+              <h4 className="text-sm font-bold p-3 text-gray-700 bg-gray-100 border-b-2 border-gray-800">
+                {section.label}
+              </h4>
+              <div 
+                className="flex-1 p-0 grid gap-0"
+                style={{ 
+                  gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                  gridTemplateRows: `repeat(${rows}, 1fr)`,
+                  minHeight: '400px'
+                }}
+              >
+                {section.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`
+                      ${getCellColorClass(item.change)}
+                      border border-gray-800 cursor-pointer transition-all duration-200
+                      hover:brightness-110 hover:z-10 hover:scale-105 hover:shadow-lg
+                      ${selectedCell === item.id ? 'ring-2 ring-blue-500 z-20' : ''}
+                      flex flex-col justify-center items-center p-2
+                    `}
+                    onClick={() => setSelectedCell(selectedCell === item.id ? null : item.id)}
+                  >
+                    <div className="text-center h-full flex flex-col justify-center">
+                      <div className="font-medium text-white text-xs leading-tight mb-1">
+                        {item.label.length > 20 ? item.label.substring(0, 20) + '...' : item.label}
+                      </div>
+                      <div className="font-bold text-white text-sm mb-1">
                         {formatValue(item.value)}
                       </div>
-                      <div className={`flex items-center justify-end gap-1 ${getChangeColor(item.change)}`}>
+                      <div className="flex items-center justify-center gap-1 text-white">
                         {getChangeIcon(item.change)}
-                        <span className="text-xs">{formatChange(item.change)}</span>
+                        <span className="text-xs font-medium">{formatChange(item.change)}</span>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+                
+                {/* Fill empty cells if needed */}
+                {Array.from({ length: (cols * rows) - section.items.length }, (_, i) => (
+                  <div key={`empty-${i}`} className="bg-gray-200 border border-gray-800"></div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {selectedCell && (
