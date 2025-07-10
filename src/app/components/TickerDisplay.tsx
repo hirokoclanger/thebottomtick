@@ -218,7 +218,7 @@ function MetricChart({ metric, className = "" }: { metric: ProcessedMetric; clas
                 <div className={`w-3 h-0.5 ${isTrendingUp ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <span className="text-gray-600">Trend</span>
                 <span className={`text-xs ${isTrendingUp ? 'text-green-600' : 'text-red-600'}`}>
-                  {isTrendingUp ? '↗ Up' : '↘ Down'}
+                  {isTrendingUp ? 'Up' : 'Down'}
                 </span>
               </div>
             )}
@@ -558,7 +558,6 @@ function getShortMetricName(name: string): string {
  */
 
 export default function TickerDisplay({ ticker, data, onClear, viewType = 'default' }: TickerDisplayProps) {
-  const [isChartsExpanded, setIsChartsExpanded] = useState(false);
   const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
   const [shortTermPeriods, setShortTermPeriods] = useState(3);
 
@@ -918,6 +917,25 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     </select>
                   </div>
                 </div>
+                
+                {/* Table Legend - moved to top */}
+                <div className="mb-4 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+                  <div className="mb-2">
+                    <strong>Overall Trend:</strong> Based on parabolic regression across all available data. 
+                    <strong> {shortTermPeriods}Q Trend:</strong> Short-term trend over last {shortTermPeriods} quarters using actual reported values (&gt;5% change threshold).
+                  </div>
+                  {viewType === 'detailed' && (
+                    <div className="mb-2">
+                      📊 <strong>Trend %:</strong> Shows the percentage change between consecutive points on the parabolic trend curve (fitted to all historical data).
+                      Note: Short-term trend may show Up while Trend % shows negative values - this indicates the underlying mathematical trend is decelerating even if recent quarters show growth.
+                      Green = accelerating trend, Red = decelerating trend.
+                    </div>
+                  )}
+                  <div className="text-gray-400">
+                    💡 Quick shortcut: Press 't' + number + Enter to change trend period (e.g., t4 + Enter for 4 quarters)
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -1021,60 +1039,6 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     </tbody>
                   </table>
                 </div>
-                <div className="mt-2 text-xs text-gray-500">
-                  Overall Trend: Based on parabolic regression across all available data. 
-                  {shortTermPeriods}Q Trend: Short-term trend over last {shortTermPeriods} quarters using actual reported values (&gt;5% change threshold).
-                  {viewType === 'detailed' && (
-                    <span className="block mt-1">
-                      📊 <strong>Trend %:</strong> Shows the percentage change between consecutive points on the parabolic trend curve (fitted to all historical data).
-                      Note: Short-term trend may show ↗ Up while Trend % shows negative values - this indicates the underlying mathematical trend is decelerating even if recent quarters show growth.
-                      Green = accelerating trend, Red = decelerating trend.
-                    </span>
-                  )}
-                  <br />
-                  <span className="text-gray-400">💡 Quick shortcut: Press 't' + number + Enter to change trend period (e.g., t4 + Enter for 4 quarters)</span>
-                </div>
-              </div>
-
-              {/* Financial Charts */}
-              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <div 
-                  className="flex justify-between items-center cursor-pointer"
-                  onClick={() => setIsChartsExpanded(!isChartsExpanded)}
-                >
-                  <h2 className="text-xl font-bold text-gray-800">Financial Metrics Overview</h2>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">
-                      {isChartsExpanded ? 'Hide Charts' : 'Show Charts'}
-                    </span>
-                    <div className={`transform transition-transform duration-200 ${isChartsExpanded ? 'rotate-180' : ''}`}>
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                
-                {isChartsExpanded && (
-                  <div className="mt-4">
-                    {/* In detailed view, show all metrics with charts; in default view, show first 8 */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {(isDetailedView ? metrics : metrics.slice(0, 8)).map((metric: ProcessedMetric) => (
-                        <MetricChart key={metric.name} metric={metric} />
-                      ))}
-                    </div>
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-                      <p className="text-blue-800">
-                        📊 <strong>{isDetailedView ? 'Detailed View' : 'Default View'}:</strong> 
-                        {isDetailedView 
-                          ? ` Showing all ${metrics.length} available financial metrics with charts.` 
-                          : ` Showing top ${Math.min(8, metrics.length)} key metrics. Use /Ticker.d for all ${data.metrics?.length || 'available'} metrics.`
-                        }
-                        Charts display the last 6 years (24 quarters) for readability.
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Financial Data Table - Hide in detailed view */}
