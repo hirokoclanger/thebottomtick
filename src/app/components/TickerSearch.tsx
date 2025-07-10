@@ -119,18 +119,18 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
       } else if (term.endsWith('.Q')) {
         viewType = 'quarterly';
         cleanTerm = term.slice(0, -2);
-      } else if (term.endsWith('.C')) {
+      } else if (term.endsWith('.CH')) {
         viewType = 'charts';
-        cleanTerm = term.slice(0, -2);
+        cleanTerm = term.slice(0, -3);
       } else if (term.endsWith('.I')) {
         viewType = 'income';
         cleanTerm = term.slice(0, -2);
       } else if (term.endsWith('.B')) {
         viewType = 'balance';
         cleanTerm = term.slice(0, -2);
-      } else if (term.endsWith('.CF')) {
+      } else if (term.endsWith('.C')) {
         viewType = 'cashflow';
-        cleanTerm = term.slice(0, -3);
+        cleanTerm = term.slice(0, -2);
       }
       
       if (filteredTickers.length > 0) {
@@ -235,7 +235,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
         </div>
         
         <div className="mb-4 text-sm text-gray-600">
-          <p><strong>Tip:</strong> Add ".d" for detailed view, ".i" for income statement (e.g., AAPL.d, AAPL.i)</p>
+          <p><strong>Tip:</strong> Add ".d" for detailed view, ".i" for income statement, ".b" for balance sheet, ".c" for cashflow, ".ch" for charts (e.g., AAPL.d, AAPL.i, AAPL.b, AAPL.c, AAPL.ch)</p>
         </div>
         
         {searchTerm && filteredTickers.length === 0 && (

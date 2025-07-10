@@ -633,8 +633,15 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
         return;
       }
 
-      // Handle 't' key sequences
-      if (key === 't' && !isTypingT && !isTypingQ) {
+      // Handle 't' key for view toggle (financial statement views)
+      if (key === 't' && !isTypingQ && (viewType === 'income' || viewType === 'balance' || viewType === 'cashflow')) {
+        setIsRawDataView(prev => !prev);
+        event.preventDefault();
+        return;
+      }
+
+      // Handle 't' key sequences for other views (legacy trend period change)
+      if (key === 't' && !isTypingT && !isTypingQ && viewType !== 'income' && viewType !== 'balance' && viewType !== 'cashflow') {
         isTypingT = true;
         inputBuffer = '';
         event.preventDefault();
@@ -651,8 +658,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
 
       if (isTypingT) {
         if (key === 'enter') {
-          // For income statement view: toggle between table and normal view
-          if (viewType === 'income' && inputBuffer === '') {
+          // For financial statement views: toggle between summary and raw data view
+          if ((viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && inputBuffer === '') {
             setIsRawDataView(prev => !prev);
             isTypingT = false;
             inputBuffer = '';
@@ -852,8 +859,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
         {/* Financial Charts and Data */}
         {(data.facts || data.metrics) && (() => {
           const isDetailedView = viewType === 'detailed' || viewType === 'quarterly' || viewType === 'charts';
-          const isIncomeView = viewType === 'income';
-          const isSpecialView = isDetailedView || isIncomeView;
+          const isFinancialStatementView = viewType === 'income' || viewType === 'balance' || viewType === 'cashflow';
+          const isSpecialView = isDetailedView || isFinancialStatementView;
           
           // Handle both old format (data.facts) and new format (data.metrics)
           let metrics, periods;
@@ -977,6 +984,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
           }
 
           // Charts view: show only charts with all metrics
+          // Charts view
           if (viewType === 'charts') {
             return (
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
@@ -1012,7 +1020,9 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
               <div className="bg-white rounded-lg p-4 border border-gray-200 mb-6">
                 <div className="flex justify-between items-center mb-3">
                   <h2 className="text-lg font-bold text-gray-800">
-                    {viewType === 'income' ? 'Income Statement' : 'Metrics Summary'}
+                    {viewType === 'income' ? 'Income Statement' : 
+                     viewType === 'balance' ? 'Balance Sheet' :
+                     viewType === 'cashflow' ? 'Cash Flow Statement' : 'Metrics Summary'}
                     {isDetailedView && (
                       <span className="ml-2 text-sm font-normal text-purple-600 bg-purple-50 px-2 py-1 rounded">
                         {metrics.length} Metrics
@@ -1037,7 +1047,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     </div>
                     
                     {/* Toggle Switch for Income Statement View */}
-                    {viewType === 'income' && (
+                    {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && (
                       <div className="flex items-center gap-2">
                         <label className="text-sm text-gray-600">View:</label>
                         <div className="flex items-center gap-2">
@@ -1071,7 +1081,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     <strong>Overall Trend:</strong> Based on parabolic regression across all available data. 
                     <strong> {shortTermPeriods}Q Trend:</strong> Short-term trend over last {shortTermPeriods} quarters using actual reported values (&gt;5% change threshold).
                   </div>
-                  {(viewType === 'detailed' || viewType === 'income') && (
+                  {(viewType === 'detailed' || viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && (
                     <div className="mb-2">
                       📊 <strong>Trend %:</strong> Shows the percentage change between consecutive points on the parabolic trend curve (fitted to all historical data).
                       Note: Short-term trend may show Up while Trend % shows negative values - this indicates the underlying mathematical trend is decelerating even if recent quarters show growth.
@@ -1080,8 +1090,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                   )}
                   <div className="text-gray-400">
                     💡 Quick shortcuts: 
-                    {viewType === 'income' ? (
-                      <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 't' + Enter to toggle view • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
+                    {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') ? (
+                      <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 't' to toggle view • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
                     ) : (
                       <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
                     )}
@@ -1096,8 +1106,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                         {showDescriptions && (
                           <th className="text-left py-2 px-3 font-semibold text-gray-700 text-xs min-w-[250px]">Description</th>
                         )}
-                        {/* Dynamic headers based on view mode for income statement */}
-                        {viewType === 'income' && isRawDataView ? (
+                        {/* Dynamic headers based on view mode for financial statements */}
+                        {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && isRawDataView ? (
                           // Raw Data View - show quarterly periods with 2-row headers
                           periods.map((period: string) => {
                             const [year, quarter] = period.split('-');
@@ -1122,7 +1132,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                               </div>
                             </th>
                             {/* Show quarterly trend percentages only in detailed and income views */}
-                            {(viewType === 'detailed' || viewType === 'income') && (
+                            {(viewType === 'detailed' || viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && (
                               <>
                                 <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs min-w-[80px]">6Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
                                 <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs min-w-[80px]">5Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
@@ -1139,7 +1149,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     <tbody>
                       {metrics.map((metric: ProcessedMetric, index: number) => {
                         const trends = calculateMetricTrend(metric, shortTermPeriods);
-                        const trendPercentages = (viewType === 'detailed' || viewType === 'income') ? calculateTrendPercentages(metric) : null;
+                        const trendPercentages = (viewType === 'detailed' || viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') ? calculateTrendPercentages(metric) : null;
                         return (
                           <tr key={metric.name} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} transition-all duration-300`}>
                             <td className="py-2 px-3 min-w-[350px] w-[350px]">
@@ -1158,8 +1168,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                               </td>
                             )}
                             
-                            {/* Dynamic content based on view mode for income statement */}
-                            {viewType === 'income' && isRawDataView ? (
+                            {/* Dynamic content based on view mode for financial statements */}
+                            {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && isRawDataView ? (
                               // Raw Data View - show quarterly data
                               periods.map((period: string) => {
                                 const dataPoint = metric.dataPoints.find((dp: FinancialDataPoint) => dp.period === period);
@@ -1213,8 +1223,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                                     )}
                                   </div>
                                 </td>
-                                {/* Show quarterly trend percentages only in detailed and income views */}
-                                {(viewType === 'detailed' || viewType === 'income') && trendPercentages && (
+                                {/* Show quarterly trend percentages only in detailed and financial statement views */}
+                                {(viewType === 'detailed' || viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && trendPercentages && (
                                   <>
                                     {[0, 1, 2, 3, 4, 5].map(quarterIndex => {
                                       const trendData = trendPercentages.quarterlyTrends[quarterIndex];
@@ -1251,8 +1261,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                 </div>
               </div>
 
-              {/* Financial Data Table - Hide in detailed view and income view */}
-              {viewType !== 'detailed' && viewType !== 'income' && (
+              {/* Financial Data Table - Hide in detailed view and financial statement views */}
+              {viewType !== 'detailed' && viewType !== 'income' && viewType !== 'balance' && viewType !== 'cashflow' && (
                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                   <div 
                     className="flex justify-between items-center cursor-pointer"

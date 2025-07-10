@@ -50,14 +50,75 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
     'WeightedAverageNumberOfDilutedSharesOutstanding'
   ];
 
+  // Balance sheet specific metrics
+  const balanceSheetMetrics = [
+    'Assets',
+    'AssetsCurrent',
+    'CashAndCashEquivalentsAtCarryingValue',
+    'MarketableSecurities',
+    'AccountsReceivableNet',
+    'Inventory',
+    'PrepaidExpensesAndOtherAssets',
+    'PropertyPlantAndEquipmentNet',
+    'Goodwill',
+    'IntangibleAssetsNet',
+    'Investments',
+    'OtherAssets',
+    'Liabilities',
+    'LiabilitiesCurrent',
+    'AccountsPayableCurrent',
+    'AccruedLiabilitiesCurrent',
+    'ShortTermDebt',
+    'LongTermDebt',
+    'DeferredRevenue',
+    'OtherLiabilities',
+    'StockholdersEquity',
+    'CommonStockValue',
+    'RetainedEarningsAccumulatedDeficit',
+    'AccumulatedOtherComprehensiveIncomeLoss',
+    'TreasuryStockValue'
+  ];
+
+  // Cash flow statement specific metrics
+  const cashFlowMetrics = [
+    'NetCashProvidedByUsedInOperatingActivities',
+    'NetIncomeLoss',
+    'DepreciationDepletionAndAmortization',
+    'StockBasedCompensation',
+    'DeferredIncomeTaxExpenseBenefit',
+    'ChangesInOperatingAssetsAndLiabilities',
+    'IncreaseDecreaseInAccountsReceivable',
+    'IncreaseDecreaseInInventories',
+    'IncreaseDecreaseInAccountsPayable',
+    'NetCashProvidedByUsedInInvestingActivities',
+    'PaymentsToAcquirePropertyPlantAndEquipment',
+    'PaymentsToAcquireInvestments',
+    'ProceedsFromSaleOfInvestments',
+    'PaymentsToAcquireBusinessesNetOfCashAcquired',
+    'NetCashProvidedByUsedInFinancingActivities',
+    'PaymentsOfDividends',
+    'PaymentsForRepurchaseOfCommonStock',
+    'ProceedsFromIssuanceOfCommonStock',
+    'RepaymentsOfDebt',
+    'ProceedsFromDebt',
+    'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsBeginningOfPeriod',
+    'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsEndOfPeriod'
+  ];
+
   const isDetailedView = viewType === 'detailed' || viewType === 'quarterly' || viewType === 'charts';
   const isIncomeView = viewType === 'income';
+  const isBalanceView = viewType === 'balance';
+  const isCashFlowView = viewType === 'cashflow';
   
   const metricsToProcess = isDetailedView 
     ? Object.keys(facts['us-gaap']) 
     : isIncomeView 
       ? incomeMetrics
-      : keyMetrics;
+      : isBalanceView
+        ? balanceSheetMetrics
+        : isCashFlowView
+          ? cashFlowMetrics
+          : keyMetrics;
 
   console.log(`Server processing: viewType=${viewType}, isDetailedView=${isDetailedView}, total available metrics=${Object.keys(facts['us-gaap']).length}, processing ${metricsToProcess.length} metrics`);
 
