@@ -2,7 +2,7 @@
  * TickerDisplay Component - Financial Dashboard
  * 
  * Current Features:
- * - Multiple view types: default, detailed (.d), quarterly (.q), charts (.c)
+ * - Multiple view types: default, detailed (.d), quarterly (.q), charts (.c), income (.i)
  * - Parabolic trend analysis with short-term trend indicators
  * - Trend percentage calculations showing curve acceleration/deceleration
  * 
@@ -751,6 +751,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
         {/* Financial Charts and Data */}
         {(data.facts || data.metrics) && (() => {
           const isDetailedView = viewType === 'detailed' || viewType === 'quarterly' || viewType === 'charts';
+          const isIncomeView = viewType === 'income';
+          const isSpecialView = isDetailedView || isIncomeView;
           
           // Handle both old format (data.facts) and new format (data.metrics)
           let metrics, periods;
@@ -894,7 +896,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
               <div className="bg-white rounded-lg p-4 border border-gray-200 mb-6">
                 <div className="flex justify-between items-center mb-3">
                   <h2 className="text-lg font-bold text-gray-800">
-                    Metrics Summary
+                    {viewType === 'income' ? 'Income Statement' : 'Metrics Summary'}
                     {isDetailedView && (
                       <span className="ml-2 text-sm font-normal text-purple-600 bg-purple-50 px-2 py-1 rounded">
                         {metrics.length} Metrics
@@ -924,7 +926,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     <strong>Overall Trend:</strong> Based on parabolic regression across all available data. 
                     <strong> {shortTermPeriods}Q Trend:</strong> Short-term trend over last {shortTermPeriods} quarters using actual reported values (&gt;5% change threshold).
                   </div>
-                  {viewType === 'detailed' && (
+                  {(viewType === 'detailed' || viewType === 'income') && (
                     <div className="mb-2">
                       📊 <strong>Trend %:</strong> Shows the percentage change between consecutive points on the parabolic trend curve (fitted to all historical data).
                       Note: Short-term trend may show Up while Trend % shows negative values - this indicates the underlying mathematical trend is decelerating even if recent quarters show growth.
@@ -949,8 +951,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                             <span className="text-xs text-gray-400 font-normal">(t+num)</span>
                           </div>
                         </th>
-                        {/* Show quarterly trend percentages only in detailed view */}
-                        {viewType === 'detailed' && (
+                        {/* Show quarterly trend percentages only in detailed and income views */}
+                        {(viewType === 'detailed' || viewType === 'income') && (
                           <>
                             <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">6Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
                             <th className="text-center py-2 px-1 font-semibold text-gray-700 text-xs">5Q Ago<br/><span className="text-xs text-gray-400 font-normal">Trend %</span></th>
@@ -965,7 +967,7 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     <tbody>
                       {metrics.map((metric: ProcessedMetric, index: number) => {
                         const trends = calculateMetricTrend(metric, shortTermPeriods);
-                        const trendPercentages = viewType === 'detailed' ? calculateTrendPercentages(metric) : null;
+                        const trendPercentages = (viewType === 'detailed' || viewType === 'income') ? calculateTrendPercentages(metric) : null;
                         return (
                           <tr key={metric.name} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
                             <td className="py-2 px-3">
@@ -1007,8 +1009,8 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                                 )}
                               </div>
                             </td>
-                            {/* Show quarterly trend percentages only in detailed view */}
-                            {viewType === 'detailed' && trendPercentages && (
+                            {/* Show quarterly trend percentages only in detailed and income views */}
+                            {(viewType === 'detailed' || viewType === 'income') && trendPercentages && (
                               <>
                                 {[0, 1, 2, 3, 4, 5].map(quarterIndex => {
                                   const trendData = trendPercentages.quarterlyTrends[quarterIndex];

@@ -156,7 +156,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
             <div className="text-xs space-y-1 text-left max-w-md mx-auto">
               <p>• Default: <code>AAPL</code> - Key metrics overview</p>
               <p>• Quarterly: <code>AAPL.q</code> - Financial data table</p>
-              <p>• Income: <code>AAPL.i</code> - Income statement with charts</p>
+              <p>• Income: <code>AAPL.i</code> - Income statement metrics</p>
               <p>• Balance: <code>AAPL.b</code> - Balance sheet with charts</p>
               <p>• Cash Flow: <code>AAPL.c</code> - Cash flow with charts</p>
               <p>• Detailed: <code>AAPL.d</code> - All metrics</p>
@@ -216,7 +216,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Type ticker symbol (e.g., AAPL, MSFT.d for detailed view)..."
+            placeholder="Type ticker symbol (e.g., AAPL, MSFT.d for detailed, AAPL.i for income statement)..."
             className="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -235,7 +235,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
         </div>
         
         <div className="mb-4 text-sm text-gray-600">
-          <p><strong>Tip:</strong> Add ".d" to any ticker for detailed view (e.g., AAPL.d)</p>
+          <p><strong>Tip:</strong> Add ".d" for detailed view, ".i" for income statement (e.g., AAPL.d, AAPL.i)</p>
         </div>
         
         {searchTerm && filteredTickers.length === 0 && (

@@ -25,10 +25,39 @@ function processFinancialDataServer(facts: any, viewType: string = 'default') {
     'OperatingCashFlowsFromOperatingActivities'
   ];
 
+  // Income statement specific metrics
+  const incomeMetrics = [
+    'Revenues',
+    'RevenueFromContractWithCustomerExcludingAssessedTax',
+    'CostOfRevenue',
+    'CostOfGoodsAndServicesSold',
+    'GrossProfit',
+    'OperatingExpenses',
+    'ResearchAndDevelopmentExpense',
+    'SellingGeneralAndAdministrativeExpense',
+    'OperatingIncomeLoss',
+    'InterestExpense',
+    'InterestIncome',
+    'OtherNonoperatingIncomeExpense',
+    'IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments',
+    'IncomeTaxExpenseBenefit',
+    'NetIncomeLoss',
+    'NetIncomeLossAttributableToNoncontrollingInterest',
+    'NetIncomeLossAttributableToParent',
+    'EarningsPerShareBasic',
+    'EarningsPerShareDiluted',
+    'WeightedAverageNumberOfSharesOutstandingBasic',
+    'WeightedAverageNumberOfDilutedSharesOutstanding'
+  ];
+
   const isDetailedView = viewType === 'detailed' || viewType === 'quarterly' || viewType === 'charts';
+  const isIncomeView = viewType === 'income';
+  
   const metricsToProcess = isDetailedView 
     ? Object.keys(facts['us-gaap']) 
-    : keyMetrics;
+    : isIncomeView 
+      ? incomeMetrics
+      : keyMetrics;
 
   console.log(`Server processing: viewType=${viewType}, isDetailedView=${isDetailedView}, total available metrics=${Object.keys(facts['us-gaap']).length}, processing ${metricsToProcess.length} metrics`);
 
