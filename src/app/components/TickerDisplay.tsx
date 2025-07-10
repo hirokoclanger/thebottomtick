@@ -634,9 +634,24 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
         </div>
 
         {/* Financial Charts and Data */}
-        {data.facts && (() => {
+        {(data.facts || data.metrics) && (() => {
           const isDetailedView = viewType === 'detailed' || viewType === 'quarterly';
-          const { metrics, periods } = processFinancialData(data.facts, isDetailedView);
+          
+          // Handle both old format (data.facts) and new format (data.metrics)
+          let metrics, periods;
+          if (data.metrics && data.periods) {
+            // New server-processed format
+            metrics = data.metrics;
+            periods = data.periods;
+          } else if (data.facts) {
+            // Old client-processed format (fallback)
+            const processed = processFinancialData(data.facts, isDetailedView);
+            metrics = processed.metrics;
+            periods = processed.periods;
+          } else {
+            metrics = [];
+            periods = [];
+          }
           
           if (metrics.length === 0 || periods.length === 0) {
             return (
