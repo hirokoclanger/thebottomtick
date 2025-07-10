@@ -1192,29 +1192,6 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                     )}
                   </div>
                 </div>
-                
-                {/* Table Legend - moved to top */}
-                <div className="mb-4 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-                  <div className="mb-2">
-                    <strong>Overall Trend:</strong> Based on parabolic regression across all available data. 
-                    <strong> {shortTermPeriods}Q Trend:</strong> Short-term trend over last {shortTermPeriods} quarters using actual reported values (&gt;5% change threshold).
-                  </div>
-                  {(viewType === 'detailed' || viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && (
-                    <div className="mb-2">
-                      📊 <strong>Trend %:</strong> Shows the percentage change between consecutive points on the parabolic trend curve (fitted to all historical data).
-                      Note: Short-term trend may show Up while Trend % shows negative values - this indicates the underlying mathematical trend is decelerating even if recent quarters show growth.
-                      Green = accelerating trend, Red = decelerating trend.
-                    </div>
-                  )}
-                  <div className="text-gray-400">
-                    💡 Quick shortcuts: 
-                    {(viewType === 'income' || viewType === 'balance' || viewType === 'cashflow' || viewType === 'detailed') ? (
-                      <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 't' to toggle view • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
-                    ) : (
-                      <>Press 'q' + number + Enter to change trend period (e.g., q4 + Enter for 4 quarters) • Press 'd' to toggle description column • Use 'j'/'k' or ←/→ arrows to scroll table horizontally</>
-                    )}
-                  </div>
-                </div>
 
                 <div className="overflow-x-auto" ref={scrollContainerRef}>
                   <table className="w-full text-sm transition-all duration-300 ease-in-out">
@@ -1376,6 +1353,21 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
                       })}
                     </tbody>
                   </table>
+                </div>
+                
+                {/* Table Legend - moved to bottom */}
+                <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
+                  <div className="mb-2">
+                    <strong>Overall Trend:</strong> Based on parabolic regression across all available data. 
+                    <strong> {shortTermPeriods}Q Trend:</strong> Short-term trend over last {shortTermPeriods} quarters using actual reported values (&gt;5% change threshold).
+                  </div>
+                  {(viewType === 'detailed' || viewType === 'income' || viewType === 'balance' || viewType === 'cashflow') && (
+                    <div>
+                      📊 <strong>Trend %:</strong> Shows the percentage change between consecutive points on the parabolic trend curve (fitted to all historical data).
+                      Note: Short-term trend may show Up while Trend % shows negative values - this indicates the underlying mathematical trend is decelerating even if recent quarters show growth.
+                      Green = accelerating trend, Red = decelerating trend.
+                    </div>
+                  )}
                 </div>
               </div>
 
