@@ -189,7 +189,9 @@ export default function DashboardPage() {
                       <div>
                         <span className="font-medium text-gray-900">{item.ticker}</span>
                         <p className="text-xs text-gray-500">
-                          Added {new Date(item.addedAt?.seconds * 1000).toLocaleDateString()}
+                          Added {item.addedAt instanceof Date ? 
+                            item.addedAt.toLocaleDateString() : 
+                            new Date(item.addedAt).toLocaleDateString()}
                         </p>
                       </div>
                       <button className="text-red-500 hover:text-red-700 text-sm">
@@ -219,7 +221,9 @@ export default function DashboardPage() {
                       <div>
                         <span className="font-medium text-gray-900">{item.ticker}</span>
                         <p className="text-xs text-gray-500">
-                          Added {new Date(item.addedAt?.seconds * 1000).toLocaleDateString()}
+                          Added {item.addedAt instanceof Date ? 
+                            item.addedAt.toLocaleDateString() : 
+                            new Date(item.addedAt).toLocaleDateString()}
                         </p>
                       </div>
                       <button className="text-red-500 hover:text-red-700 text-sm">
